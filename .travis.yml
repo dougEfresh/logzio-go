@@ -1,0 +1,17 @@
+language: go
+sudo: false
+go:
+- 1.8
+before_install:
+- go get github.com/mattn/goveralls
+- go get golang.org/x/tools/cmd/cover
+os:
+- linux
+script:
+- go build -race
+- go test -v ./...
+- go vet
+- cd test; go run test.go $LOGZ
+env:
+  global:
+    secure: iCfUsEHZ2bY+zrhvyF6GXIZEyfxx1I4QLKMr5K+87JK7FeQ3PY/U2Gs4v26f2krau5z65Ky6KLn3DtEGm8tBdTE2k8pfRI7dN1dWhakZp6MKHFFhlunvDjcTH2bxPyjl6wFp25y9RlvFi11rQ/HGSfECkq4fNnU3/KDKC6pO3deMAa1ZWuUeOpJcF7pe/q6IcdvA9xLN+U6OlB1EQ5IZuzCtLX4qcHGRqipYUsrK7kDykIHzlXoSYaeOjdOvdKh0ESh/Lo+70M9uMoxejtNARz5gHrtmF1srjZygUgYvvBcXmV/FXPHT+zVCJDZQuLL6ZYvGK/pK0H5QHt4RcfrZhwiPlAnL31bk1V+L+7HQ4BJ4WNvt4kc/YtrgeHkK8znS2Py+U5vCalwMmyGRooZkMZpSXmnQbX7b6+oAvLKzf26ZU9d6/p8oI41IYVFi6PuY6O0cCGmKdkxKnAyJK+k3OHyn7Us7rFByLM0IYk6SAghVixozJR819NjOeKSGfTFK1Lu9hkXx6ajziPXudxI09Kyc1tE9+Rrz1v0ibJ77miGkCBbNCpVksXf3NZmLmZP48fCoEb5A1v98CHMzvfBwrkupIWEE9POIaRwg2bL6UNp5Wq1XcRI7I9K+pcAc3j/TV4sQifIWKmA44+7ntGfLyNdoyY7DAb/NfC4AF/Zn61M=
