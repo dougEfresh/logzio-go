@@ -26,7 +26,7 @@ import (
 )
 
 func main() {
-	l, err := logzio.New(os.Args[1])
+	l, err := logzio.New(os.Args[1]) // Token is required
 	if err != nil {
 		panic(err)
 	}
