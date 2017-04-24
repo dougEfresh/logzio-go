@@ -75,7 +75,6 @@ func TestLogzioSender_DelayStart(t *testing.T) {
 	}
 }
 
-
 func BenchmarkLogzioSender_Send(b *testing.B) {
 	b.ReportAllocs()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

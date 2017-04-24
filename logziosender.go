@@ -57,7 +57,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 		buf:           bytes.NewBuffer(make([]byte, maxSize)),
 		drainDuration: defaultDrainDuration,
 		url:           defaultHost,
-		token: token,
+		token:         token,
 	}
 	q, err := goque.OpenQueue(fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()))
 	if err != nil {
@@ -72,7 +72,6 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 	go l.start()
 	return l, nil
 }
-
 
 // SetTempDirectory
 func SetTempDirectory(dir string) SenderOptionFunc {
@@ -193,5 +192,3 @@ func (l *LogzioSender) debugLog(format string, a ...interface{}) {
 func (l *LogzioSender) errorLog(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, a...)
 }
-
-
