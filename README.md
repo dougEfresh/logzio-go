@@ -1,10 +1,10 @@
-# Logzio for go-kit logger
-Send go-kit logs to Logzio
+# Logzio golang client
+Send logs to Logzio
 
-[![Build Status](https://travis-ci.org/dougEfresh/kitz.svg?branch=master)](https://travis-ci.org/dougEfresh/kitz)
-[![Go Report Card](https://goreportcard.com/badge/github.com/dougEfresh/kitz)](https://goreportcard.com/report/github.com/dougEfresh/kitz)
-[![GoDoc](https://godoc.org/github.com/dougEfresh/kitz?status.svg)](https://godoc.org/github.com/dougEfresh/kitz)
-[![license](http://img.shields.io/badge/license-apache-red.svg?style=flat)](https://raw.githubusercontent.com/dougEfresh/kitz/master/LICENSE)
+[![Build Status](https://travis-ci.org/dougEfresh/logzio-go.svg?branch=master)](https://travis-ci.org/dougEfresh/logzio-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/dougEfresh/logzio-go)](https://goreportcard.com/report/github.com/dougEfresh/logzio-go)
+[![GoDoc](https://godoc.org/github.com/dougEfresh/logzio-go?status.svg)](https://godoc.org/github.com/dougEfresh/logzio-go)
+[![license](http://img.shields.io/badge/license-apache-red.svg?style=flat)](https://raw.githubusercontent.com/dougEfresh/logzio-go/master/LICENSE)
 
 ## Getting Started
 
@@ -19,18 +19,23 @@ Send go-kit logs to Logzio
 package main
 
 import (
-        "github.com/dougEfresh/kitz"
-        "github.com/go-kit/kit/log"
+	"fmt"
+	"github.com/dougEfresh/logzio-go"
+	"os"
+	"time"
 )
 
 func main() {
-        klogger, err := kitz.New("123456789")
-        if err != nil {
-                panic(err)
-        }
-        // returns the go-kit logger
-        logger := klogger.Build()
-        // message is required
-        logger.Log("message", "hello!")
+	l, err := logzio.New(os.Args[1])
+	if err != nil {
+		panic(err)
+	}
+	msg := fmt.Sprintf("{ \"%s\": \"%s\"}", "message", time.Now().UnixNano())
+	err = l.Send([]byte(msg))
+	if err != nil {
+		panic(err)
+	}
+	l.Stop() // logs are buffered on disk. Stop will drain the buffer
 }
+
 ```

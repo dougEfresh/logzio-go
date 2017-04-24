@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	l, err := logzio.New(logzio.SetToken(os.Args[1]))
+	l, err := logzio.New(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
@@ -31,6 +31,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	l.Stop()
+	l.Stop() // logs are buffered on disk. Stop will drain the buffer
 	time.Sleep(500 * time.Millisecond)
 }
