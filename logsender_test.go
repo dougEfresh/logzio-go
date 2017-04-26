@@ -24,7 +24,9 @@ import (
 
 func TestLogzioSender_Send(t *testing.T) {
 	var sent []byte = make([]byte, 1024)
+	var sentToken string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sentToken = r.URL.Query().Get("token")
 		w.WriteHeader(http.StatusOK)
 		r.Body.Read(sent)
 	}))
@@ -41,6 +43,9 @@ func TestLogzioSender_Send(t *testing.T) {
 	sentMsg := string(sent[0:5])
 	if sentMsg != "blah\n" {
 		t.Fatalf("%s != %s ", sent, sentMsg)
+	}
+	if sentToken != "fake-token" {
+		t.Fatalf("token not sent %s", sentToken)
 	}
 }
 

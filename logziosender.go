@@ -56,7 +56,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 	l := &LogzioSender{
 		buf:           bytes.NewBuffer(make([]byte, maxSize)),
 		drainDuration: defaultDrainDuration,
-		url:           defaultHost,
+		url:           fmt.Sprintf("%s/?token=%s", defaultHost, token),
 		token:         token,
 	}
 	q, err := goque.OpenQueue(fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()))

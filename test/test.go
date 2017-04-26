@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	l, err := logzio.New(os.Args[1])
+	l, err := logzio.New(os.Args[1], logzio.SetDebug(os.Stderr))
 	if err != nil {
 		panic(err)
 	}
