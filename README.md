@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	l.Stop() // logs are buffered on disk. Stop will drain the buffer
+	l.Stop() //logs are buffered on disk. Stop will drain the buffer
 }
 
 ```
