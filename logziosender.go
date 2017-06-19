@@ -77,7 +77,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 func SetTempDirectory(dir string) SenderOptionFunc {
 	return func(l *LogzioSender) error {
 		l.queue.Drop()
-		q, err := goque.OpenQueue(defaultBuffDir)
+		q, err := goque.OpenQueue(dir)
 		if err != nil {
 			return err
 		}
