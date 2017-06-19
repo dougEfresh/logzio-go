@@ -42,5 +42,5 @@ func main() {
 
 ## Disk queue
 
-Logzio go client uses [https://github.com/syndtr/goleveld] as a persistent storage.
+Logzio go client uses [https://github.com/syndtr/goleveldb] as a persistent storage.
 Every 5 seconds logs are sent to logz.io (if any are available)
