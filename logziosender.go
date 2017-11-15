@@ -103,6 +103,14 @@ func SetDebug(debug io.Writer) SenderOptionFunc {
 	}
 }
 
+// SetDrainDuration to change the interval between drains
+func SetDrainDuration(duration time.Duration) SenderOptionFunc {
+	return func(l *LogzioSender) error {
+		l.drainDuration = duration
+		return nil
+	}
+}
+
 // Send the payload to logz.io
 func (l *LogzioSender) Send(payload []byte) error {
 	_, err := l.queue.Enqueue(payload)
