@@ -1,7 +1,7 @@
 language: go
 sudo: false
 go:
-- 1.8
+- 1.9.2
 before_install:
 - go get github.com/mattn/goveralls
 - go get golang.org/x/tools/cmd/cover
@@ -10,8 +10,7 @@ os:
 script:
 - go build -race
 - go test -v ./...
-- go vet
 - cd test; go run test.go $LOGZ
 env:
   global:
-  - secure: hu/7RZMNjb6n/xMYZpyIU5x3usizMCOJeQjGI9PWuOZDVSUaCyQZIjN11IHWqu0MBdbfI8aXZtF1JUXMgZ85dd6NsZ3RQIVMqFs7CQr/Dawvd6Bb1Fu2xQ3sJ882LXxmRV+DnxwFCenCW3e0V0KCzG8dNedgmNn16Tau32so5H7zTYlxjcPIckN/CHMqe6C3FGf6HyANe9r9NYmooPkfoB0Gsa4ncf5x8oWwDRgcouPJummQv6sl64CEAJlNiUmp3SXbcG6a094wy1I3yuelpmHnpEog+cFvF9mk6WTeetmMnfoZRtQ7mGcq7AhEHXj2sBqScCiClP1dibX9rwk5n9Rt9lsbAv8SJyB6c3br5jdYTFeEs6vDCjiJPXoY1fe7TC0wBNjSUNKgXzmTliFWnSVWNDgDewm2HuoGPNQO3DDDHNeKIs29eLUS8V8nhQgJeRaTQK+RjrH49NiDjE4Z2E9+PgXUqRxH0pGjsUsT/WtOyKTwamUzb1PKsw3FPQsI2lPrNoxjVmw4Fl/7FR9lyqSpIVPmOYqjdSdjN1ACtVnPmwSf2xX7LcgqVbLqISi/lVsQd3hEgsXPZ4/bbeVF4MpZKbJ4UKtyRy1wwq9LuAonW5ayRPy3k6K7qCrGSpMNGsHelabCKd9WN8EAuQ2ndCyWXS9kUQxxjuwGKXd+ms0=
+    secure: lyrrNZd5JG8u1YCHoo695LoE0e1pvr5AQOIfUvwrnnfMd0qBd5iaVtgtafw4oCpzPSX0gDzvQ2hYtay28HfqB7S+R3VimGHlngk8xOrGguSB+R9UWVamy0CLhRlz7g6p9iBwgUCXyxE2Wlbje/7TPyfH4VGAlZl+tcOhdfUc6SIsWzw9yB+qMfufE9hro2pU2d7O6sSE+uY4yjTqQLwT8uv0VSlPtJ6Juzxbul+xu9NGlESePtwCC+Y+0R+tLefVk1htoOm+dewYr546D2O7KYUryVmVxuNm0irch5PbcnWrFcTUCtahIKUUByehjY3/cJWhzcPC8S9IRV0V+z7/PRS33N44jTHelEao2M/BFLmWTbLQJpJrNpdnvvbEE17503f89Dt41bv/dxbgct4rrnBKjB7W9MkT+vyo1gHppGdYGZLyQ2XeX7Va/ZogrHwfIRM6+jQ/rueoBbgwf1OXyb8BvhIJa/+DLoDlJuvFWhBuxN6nWZsWKAMZWZHCZfR1dPCP3USQxPEApNFqlmwBdt2sXcdy/I8o+Z4VRotnwjKs8kNy1KW1LsHc7pgZ2XQyk/p38xAoHJU4rocumy0QDCg1S0fW63bDWaXP46JNHXCV7zk4KRufJE6uu0C4s4t63kU8qR4wEjSselhaXenC9cAT4GzzgzDiShtFIacpJGk=
