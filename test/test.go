@@ -16,9 +16,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/dougEfresh/logzio-go"
 	"os"
 	"time"
+
+	"github.com/dougEfresh/logzio-go"
 )
 
 func main() {
@@ -26,7 +27,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	msg := fmt.Sprintf("{ \"%s\": \"%s\"}", "message", time.Now().UnixNano())
+
+	msg := fmt.Sprintf("{ \"%s\": \"%d\"}", "message", time.Now().UnixNano())
 	err = l.Send([]byte(msg))
 	if err != nil {
 		panic(err)

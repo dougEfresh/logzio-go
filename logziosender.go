@@ -17,14 +17,15 @@ package logzio
 import (
 	"bytes"
 	"fmt"
-	"github.com/beeker1121/goque"
-	"go.uber.org/atomic"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/beeker1121/goque"
+	"go.uber.org/atomic"
 )
 
 const (
@@ -49,6 +50,7 @@ type LogzioSender struct {
 	tls           bool
 }
 
+// SenderOptionFunc options for logz
 type SenderOptionFunc func(*LogzioSender) error
 
 // New creates a new Logzio sender with a token and options
@@ -73,7 +75,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 	return l, nil
 }
 
-// SetTempDirectory
+// SetTempDirectory Use this temporary dir
 func SetTempDirectory(dir string) SenderOptionFunc {
 	return func(l *LogzioSender) error {
 		l.queue.Drop()
@@ -146,9 +148,9 @@ func (l *LogzioSender) drain() {
 	l.draining.Toggle()
 	defer l.draining.Toggle()
 	var (
-		err     error       = nil
-		item    *goque.Item = nil
-		bufSize int         = 0
+		err     error
+		item    *goque.Item
+		bufSize int
 	)
 	l.buf.Reset()
 	for bufSize < maxSize && err == nil {
