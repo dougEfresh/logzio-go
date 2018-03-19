@@ -23,7 +23,7 @@ import (
 )
 
 func TestLogzioSender_Send(t *testing.T) {
-	var sent []byte = make([]byte, 1024)
+	var sent = make([]byte, 1024)
 	var sentToken string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sentToken = r.URL.Query().Get("token")
@@ -38,7 +38,7 @@ func TestLogzioSender_Send(t *testing.T) {
 		t.Fatal(err)
 	}
 	l.Send([]byte("blah"))
-	l.drain()
+	l.Drain()
 	time.Sleep(200 * time.Millisecond)
 	sentMsg := string(sent[0:5])
 	if sentMsg != "blah\n" {
@@ -50,7 +50,7 @@ func TestLogzioSender_Send(t *testing.T) {
 }
 
 func TestLogzioSender_DelayStart(t *testing.T) {
-	var sent []byte = make([]byte, 1024)
+	var sent = make([]byte, 1024)
 	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		r.Body.Read(sent)
@@ -66,10 +66,10 @@ func TestLogzioSender_DelayStart(t *testing.T) {
 	}
 	l.Send([]byte("blah"))
 	time.Sleep(200 * time.Millisecond)
-	l.drain()
+	l.Drain()
 	ts.Start()
 	SetUrl(ts.URL)(l)
-	l.drain()
+	l.Drain()
 	time.Sleep(500 * time.Millisecond)
 	sentMsg := string(sent[0:5])
 	if len(sentMsg) != 5 {

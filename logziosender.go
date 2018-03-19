@@ -126,17 +126,18 @@ func (l *LogzioSender) start() {
 // Stop will close the LevelDB queue and do a final drain
 func (l *LogzioSender) Stop() {
 	defer l.queue.Close()
-	l.drain()
+	l.Drain()
 }
 
 func (l *LogzioSender) drainTimer() {
 	for {
 		time.Sleep(l.drainDuration)
-		l.drain()
+		l.Drain()
 	}
 }
 
-func (l *LogzioSender) drain() {
+// Drain - Send remaining logs
+func (l *LogzioSender) Drain() {
 	l.mux.Lock()
 	if l.draining.Load() {
 		l.mux.Unlock()
