@@ -168,8 +168,8 @@ func (l *LogzioSender) Drain() {
 		}
 	}
 	if bufSize > 0 {
+		l.debugLog("logziosender.go: Sending %s (%d) to %s\n", l.buf.String(), l.buf.Len(), l.url)
 		resp, err := http.Post(l.url, "text/plain", l.buf)
-		l.debugLog("logziosender.go: Sending %s to %s\n", l.buf.String(), l.url)
 		if err != nil {
 			l.debugLog("logziosender.go: Error sending logs to %s\n", l.url)
 			l.requeue()
@@ -189,6 +189,11 @@ func (l *LogzioSender) Drain() {
 	}
 }
 
+func (l *LogzioSender) Sync() error {
+	l.Drain()
+	return nil
+}
+
 func (l *LogzioSender) requeue() {
 	l.debugLog("logziosender.go: Requeue %s", l.buf.String())
 	l.Send(l.buf.Bytes())
@@ -202,4 +207,8 @@ func (l *LogzioSender) debugLog(format string, a ...interface{}) {
 
 func (l *LogzioSender) errorLog(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, a...)
+}
+
+func (l *LogzioSender) Write(p []byte) (n int, err error) {
+	return len(p), l.Send(p)
 }
