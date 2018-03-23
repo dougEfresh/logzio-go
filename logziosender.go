@@ -168,7 +168,7 @@ func (l *LogzioSender) Drain() {
 		}
 	}
 	if bufSize > 0 {
-		l.debugLog("logziosender.go: Sending %s (%d) to %s\n", l.buf.String(), l.buf.Len(), l.url)
+		//l.debugLog("logziosender.go: Sending %s (%d) to %s\n", l.buf.String(), l.buf.Len(), l.url)
 		resp, err := http.Post(l.url, "text/plain", l.buf)
 		if err != nil {
 			l.debugLog("logziosender.go: Error sending logs to %s\n", l.url)

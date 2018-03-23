@@ -80,17 +80,16 @@ func TestLogzioSender_DelayStart(t *testing.T) {
 	}
 }
 
-func BenchmarkLogzioSender_Send(b *testing.B) {
+func BenchmarkLogzioSender(b *testing.B) {
 	b.ReportAllocs()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	l, _ := New("fake-token", SetUrl(ts.URL))
+	l, _ := New("fake-token", SetUrl(ts.URL), SetDrainDuration(time.Hour))
 	defer ts.Close()
 	defer l.Stop()
 	msg := []byte("test")
 	for i := 0; i < b.N; i++ {
 		l.Send(msg)
 	}
-	l.Stop()
 }
