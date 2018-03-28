@@ -34,7 +34,6 @@ const (
 	defaultDrainDuration = 5 * time.Second
 )
 
-var defaultBuffDir string
 var newLine = byte(10)
 
 // LogzioSender instance of the
@@ -47,7 +46,6 @@ type LogzioSender struct {
 	token         string
 	url           string
 	debug         io.Writer
-	tls           bool
 }
 
 // SenderOptionFunc options for logz
@@ -78,7 +76,10 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 // SetTempDirectory Use this temporary dir
 func SetTempDirectory(dir string) SenderOptionFunc {
 	return func(l *LogzioSender) error {
-		l.queue.Drop()
+		err := l.queue.Drop()
+		if err != nil {
+			l.debugLog("error dropping queue %s", err)
+		}
 		q, err := goque.OpenQueue(dir)
 		if err != nil {
 			return err
@@ -138,14 +139,13 @@ func (l *LogzioSender) drainTimer() {
 
 // Drain - Send remaining logs
 func (l *LogzioSender) Drain() {
-	l.mux.Lock()
 	if l.draining.Load() {
-		l.mux.Unlock()
 		l.debugLog("logziosender.go: Already draining\n")
 		return
 	}
+	l.mux.Lock()
 	l.debugLog("logziosender.go: draining queue\n")
-	l.mux.Unlock()
+	defer l.mux.Unlock()
 	l.draining.Toggle()
 	defer l.draining.Toggle()
 	var (
@@ -155,7 +155,10 @@ func (l *LogzioSender) Drain() {
 	)
 	l.buf.Reset()
 	for bufSize < maxSize && err == nil {
-		item, err = l.queue.Peek()
+		item, err = l.queue.Dequeue()
+		if err != nil {
+			l.debugLog("queue state: %s", err)
+		}
 		if item != nil {
 			// NewLine is appended tp item.Value
 			if len(item.Value)+bufSize+1 > maxSize {
@@ -163,9 +166,14 @@ func (l *LogzioSender) Drain() {
 			}
 			bufSize += len(item.Value)
 			l.debugLog("logziosender.go: Adding item %d with size %d (total buffSize: %d)\n", item.ID, len(item.Value), bufSize)
-			item, _ = l.queue.Dequeue()
-			l.buf.Write(append(item.Value, newLine))
+			_, err := l.buf.Write(append(item.Value, newLine))
+			if err != nil {
+				l.errorLog("error writing to buffer %s", err)
+			}
+		} else {
+			break
 		}
+
 	}
 	if bufSize > 0 {
 		//l.debugLog("logziosender.go: Sending %s (%d) to %s\n", l.buf.String(), l.buf.Len(), l.url)
@@ -189,6 +197,7 @@ func (l *LogzioSender) Drain() {
 	}
 }
 
+// Sync drains the queue
 func (l *LogzioSender) Sync() error {
 	l.Drain()
 	return nil
@@ -196,7 +205,10 @@ func (l *LogzioSender) Sync() error {
 
 func (l *LogzioSender) requeue() {
 	l.debugLog("logziosender.go: Requeue %s", l.buf.String())
-	l.Send(l.buf.Bytes())
+	err := l.Send(l.buf.Bytes())
+	if err != nil {
+		l.errorLog("could not requeue logs %s", err)
+	}
 }
 
 func (l *LogzioSender) debugLog(format string, a ...interface{}) {
