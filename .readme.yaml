@@ -1,6 +1,6 @@
 title:
   name: Logzio Golang API client
-  description: Sends strucuted logs to [logz.io](https://logz.io) over HTTP
+  description: Sends logs to [logz.io](https://logz.io) over HTTP
 user: dougEfresh
 project: logzio-go
 installation: >-

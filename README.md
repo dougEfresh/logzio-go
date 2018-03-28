@@ -1,6 +1,6 @@
 # Logzio Golang API client
 
-Sends structed logs to [logz.io](https://logz.io) over HTTP
+Sends logs to [logz.io](https://logz.io) over HTTP
 
 [![GoDoc][doc-img]][doc] [![Build Status][ci-img]][ci] [![Coverage Status][cov-img]][cov] [![Go Report][report-img]][report]
 
