@@ -46,7 +46,11 @@ type LogzioSender struct {
 	token         string
 	url           string
 	debug         io.Writer
+	dir           string
 }
+
+// Sender Alias to LogzioSender
+type Sender LogzioSender
 
 // SenderOptionFunc options for logz
 type SenderOptionFunc func(*LogzioSender) error
@@ -58,17 +62,19 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 		drainDuration: defaultDrainDuration,
 		url:           fmt.Sprintf("%s/?token=%s", defaultHost, token),
 		token:         token,
+		dir:           fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()),
 	}
-	q, err := goque.OpenQueue(fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()))
-	if err != nil {
-		return nil, err
-	}
-	l.queue = q
+
 	for _, option := range options {
 		if err := option(l); err != nil {
 			return nil, err
 		}
 	}
+	q, err := goque.OpenQueue(l.dir)
+	if err != nil {
+		return nil, err
+	}
+	l.queue = q
 	go l.start()
 	return l, nil
 }
@@ -76,15 +82,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 // SetTempDirectory Use this temporary dir
 func SetTempDirectory(dir string) SenderOptionFunc {
 	return func(l *LogzioSender) error {
-		err := l.queue.Drop()
-		if err != nil {
-			l.debugLog("error dropping queue %s", err)
-		}
-		q, err := goque.OpenQueue(dir)
-		if err != nil {
-			return err
-		}
-		l.queue = q
+		l.dir = dir
 		return nil
 	}
 }
@@ -179,7 +177,7 @@ func (l *LogzioSender) Drain() {
 		//l.debugLog("logziosender.go: Sending %s (%d) to %s\n", l.buf.String(), l.buf.Len(), l.url)
 		resp, err := http.Post(l.url, "text/plain", l.buf)
 		if err != nil {
-			l.debugLog("logziosender.go: Error sending logs to %s\n", l.url)
+			l.debugLog("logziosender.go: Error sending logs to %s %s\n", l.url, err)
 			l.requeue()
 			return
 		}
@@ -187,13 +185,9 @@ func (l *LogzioSender) Drain() {
 			l.debugLog("logziosender.go: Accepted payload\n")
 			return
 		}
-		if resp.StatusCode == http.StatusUnauthorized {
-			l.errorLog("logziosender.go: Unauthorized access to %s\n", l.url)
-			l.requeue()
-			return
-		}
 		b, _ := ioutil.ReadAll(resp.Body)
-		l.errorLog("logziosender.go: Error sending %s to %s\ncode: %s response:%s\n", l.buf.String(), l.url, resp.StatusCode, string(b))
+		l.requeue()
+		l.errorLog("logziosender.go: Error sending %s to %s code: %d response:%s\n", l.buf.String(), l.url, resp.StatusCode, string(b))
 	}
 }
 

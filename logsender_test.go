@@ -15,6 +15,7 @@
 package logzio
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -77,6 +78,108 @@ func TestLogzioSender_DelayStart(t *testing.T) {
 	}
 	if sentMsg != "blah\n" {
 		t.Fatalf("%s != %s ", sent, sentMsg)
+	}
+}
+
+func TestLogzioSender_TmpDir(t *testing.T) {
+	var sent = make([]byte, 1024)
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		r.Body.Read(sent)
+	}))
+	ts.Start()
+	defer ts.Close()
+	tmp := fmt.Sprintf("%s/%d", os.TempDir(), time.Now().Nanosecond())
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetTempDirectory(tmp),
+		SetDrainDuration(time.Minute),
+		SetUrl(ts.URL),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.Send([]byte("blah"))
+	time.Sleep(200 * time.Millisecond)
+	l.Drain()
+	sentMsg := string(sent[0:5])
+	if len(sentMsg) != 5 {
+		t.Fatalf("Wrong len of msg %d", len(sentMsg))
+	}
+	if sentMsg != "blah\n" {
+		t.Fatalf("%s != %s ", string(sent), string(sentMsg))
+	}
+}
+
+func TestLogzioSender_Write(t *testing.T) {
+	var sent = make([]byte, 1024)
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		r.Body.Read(sent)
+	}))
+	ts.Start()
+	defer ts.Close()
+	tmp := fmt.Sprintf("%s/%d", os.TempDir(), time.Now().Nanosecond())
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetTempDirectory(tmp),
+		SetDrainDuration(time.Minute),
+		SetUrl(ts.URL),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.Write([]byte("blah"))
+	time.Sleep(200 * time.Millisecond)
+	l.Sync()
+	sentMsg := string(sent[0:5])
+	if len(sentMsg) != 5 {
+		t.Fatalf("Wrong len of msg %d", len(sentMsg))
+	}
+	if sentMsg != "blah\n" {
+		t.Fatalf("%s != %s ", string(sent), string(sentMsg))
+	}
+}
+
+func TestLogzioSender_Unauth(t *testing.T) {
+	var sent = make([]byte, 1024)
+	cnt := 0
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cnt++
+		if cnt == 2 {
+			w.WriteHeader(http.StatusAccepted)
+		} else {
+			w.WriteHeader(http.StatusUnauthorized)
+		}
+		r.Body.Read(sent)
+	}))
+	ts.Start()
+	defer ts.Close()
+	tmp := fmt.Sprintf("%s/%d", os.TempDir(), time.Now().Nanosecond())
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetTempDirectory(tmp),
+		SetDrainDuration(time.Minute),
+		SetUrl(ts.URL),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.Write([]byte("blah"))
+	time.Sleep(200 * time.Millisecond)
+	l.Sync()
+	time.Sleep(100 * time.Millisecond)
+	l.Drain()
+	time.Sleep(100 * time.Millisecond)
+	sentMsg := string(sent[0:5])
+	if len(sentMsg) != 5 {
+		t.Fatalf("Wrong len of msg %d", len(sentMsg))
+	}
+	if sentMsg != "blah\n" {
+		t.Fatalf("%s != %s ", string(sent), string(sentMsg))
 	}
 }
 

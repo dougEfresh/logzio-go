@@ -27,12 +27,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	msg := fmt.Sprintf("{ \"%s\": \"%d\"}", "message", time.Now().UnixNano())
 	err = l.Send([]byte(msg))
 	if err != nil {
 		panic(err)
 	}
+	l.Send([]byte(msg))
+	if err != nil {
+		panic(err)
+	}
 	l.Stop() // logs are buffered on disk. Stop will drain the buffer
-	time.Sleep(500 * time.Millisecond)
 }
