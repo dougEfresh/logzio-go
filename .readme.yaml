@@ -51,3 +51,4 @@ usages:
   - "Setting drain duration (flush logs on disk) : `logzio.New(token, SetDrainDuration(time.Hour))`"
   - "Setting url mode: `logzio.New(token, SetUrl(ts.URL))`"
   - "Setting debug mode: `logzio.New(token, SetDebug(os.Stderr))`"
+  - "Setting queue dir: `logzio.New(token, SetSetTempDirectory(os.Stderr))`"

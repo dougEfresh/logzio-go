@@ -48,15 +48,16 @@ Setting url mode: `logzio.New(token, SetUrl(ts.URL))`
 
 Setting debug mode: `logzio.New(token, SetDebug(os.Stderr))`
 
+Setting queue dir: `logzio.New(token, SetSetTempDirectory(os.Stderr))`
+
 ## Disk queue
 
-Logzio go client uses [https://github.com/syndtr/goleveldb] as a persistent storage.
+Logzio go client uses [goleveldb](https://github.com/syndtr/goleveldb) and [goqueue](github.com/beeker1121/goque) as a persistent storage.
 Every 5 seconds logs are sent to logz.io (if any are available)
 
 ## Examples
 
 [zapz](https://github.com/dougefresh/zapz)
-
 
 ## Prerequisites
 

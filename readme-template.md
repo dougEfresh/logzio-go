@@ -23,7 +23,7 @@
 
 ## Disk queue
 
-Logzio go client uses [https://github.com/syndtr/goleveldb] as a persistent storage.
+Logzio go client uses [goleveldb](https://github.com/syndtr/goleveldb) and [goqueue](github.com/beeker1121/goque) as a persistent storage.
 Every 5 seconds logs are sent to logz.io (if any are available)
 
 ## Examples
@@ -33,7 +33,6 @@ Every 5 seconds logs are sent to logz.io (if any are available)
 {{.}}
 
 {{- end }}
-
 
 ## Prerequisites
 
