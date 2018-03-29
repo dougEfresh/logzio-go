@@ -148,12 +148,12 @@ func (l *LogzioSender) Drain() {
 	defer l.draining.Toggle()
 	var (
 		err     error
-		item    *goque.Item
 		bufSize int
 	)
+
 	l.buf.Reset()
 	for bufSize < maxSize && err == nil {
-		item, err = l.queue.Dequeue()
+		item, err := l.queue.Dequeue()
 		if err != nil {
 			l.debugLog("queue state: %s", err)
 		}
