@@ -183,6 +183,43 @@ func TestLogzioSender_Unauth(t *testing.T) {
 	}
 }
 
+func TestLogzioSender_ThresholdLimit(t *testing.T) {
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetUrl("http://localhost:12345"),
+		SetDrainDiskThreshold(0),
+		SetDrainDuration(time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.Send([]byte("blah"))
+	item, err := l.queue.Dequeue()
+	if item != nil{
+		t.Fatalf("Unexpect item in the queue - %s",string(item.Value))
+	}
+}
+
+func TestLogzioSender_ThresholdLimitWithoutCheck(t *testing.T) {
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetUrl("http://localhost:12345"),
+		SetDrainDiskThreshold(0),
+		SetCheckDiskSpace(false),
+		SetDrainDuration(time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.Send([]byte("blah"))
+	item, err := l.queue.Dequeue()
+	if item == nil{
+		t.Fatalf("Unexpect item in the queue - %s",string(item.Value))
+	}
+}
+
 func BenchmarkLogzioSender(b *testing.B) {
 	b.ReportAllocs()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
