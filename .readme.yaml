@@ -38,7 +38,8 @@ quickStart:
     ```
   description: "logzio sender is a low level lib meant to be integrated with other logging libs"
 examples:
-  - "[zapz](https://github.com/dougefresh/zapz)"
+  - "Uber Zap: [zapz](https://github.com/dougefresh/zapz)"
+  - "GO kit: [kitz](https://github.com/dougefresh/kitz)"
 tests:
   - |
     ```shell

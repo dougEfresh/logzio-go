@@ -57,7 +57,9 @@ Every 5 seconds logs are sent to logz.io (if any are available)
 
 ## Examples
 
-[zapz](https://github.com/dougefresh/zapz)
+Uber Zap: [zapz](https://github.com/dougefresh/zapz)
+
+GO kit: [kitz](https://github.com/dougefresh/kitz)
 
 ## Prerequisites
 
