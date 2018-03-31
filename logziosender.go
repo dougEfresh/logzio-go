@@ -25,34 +25,33 @@ import (
 	"time"
 
 	"github.com/beeker1121/goque"
-	"go.uber.org/atomic"
 	"github.com/ricochet2200/go-disk-usage/du"
-
+	"go.uber.org/atomic"
 )
 
 const (
-	maxSize              	= 3 * 1024 * 1024 // 3 mb
-	defaultHost          	= "https://listener.logz.io:8071"
-	defaultDrainDuration 	= 5 * time.Second
-	defaultDiskThreshold	= 70.0 // represent % of the disk
-	defaultCheckDiskSpace	= true
+	maxSize               = 3 * 1024 * 1024 // 3 mb
+	defaultHost           = "https://listener.logz.io:8071"
+	defaultDrainDuration  = 5 * time.Second
+	defaultDiskThreshold  = 70.0 // represent % of the disk
+	defaultCheckDiskSpace = true
 )
 
 var newLine = byte(10)
 
 // LogzioSender instance of the
 type LogzioSender struct {
-	queue         	*goque.Queue
-	drainDuration 	time.Duration
-	buf           	*bytes.Buffer
-	draining      	atomic.Bool
-	mux           	sync.Mutex
-	token         	string
-	url           	string
-	debug         	io.Writer
-	diskThreshold 	float32
-	checkDiskSpace 	bool
-	dir           	string
+	queue          *goque.Queue
+	drainDuration  time.Duration
+	buf            *bytes.Buffer
+	draining       atomic.Bool
+	mux            sync.Mutex
+	token          string
+	url            string
+	debug          io.Writer
+	diskThreshold  float32
+	checkDiskSpace bool
+	dir            string
 }
 
 // Sender Alias to LogzioSender
@@ -64,12 +63,12 @@ type SenderOptionFunc func(*LogzioSender) error
 // New creates a new Logzio sender with a token and options
 func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 	l := &LogzioSender{
-		buf:           	bytes.NewBuffer(make([]byte, maxSize)),
-		drainDuration: 	defaultDrainDuration,
-		url:           	fmt.Sprintf("%s/?token=%s", defaultHost, token),
-		token:         	token,
-		dir:           	fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()),
-		diskThreshold: 	defaultDiskThreshold,
+		buf:            bytes.NewBuffer(make([]byte, maxSize)),
+		drainDuration:  defaultDrainDuration,
+		url:            fmt.Sprintf("%s/?token=%s", defaultHost, token),
+		token:          token,
+		dir:            fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()),
+		diskThreshold:  defaultDiskThreshold,
 		checkDiskSpace: defaultCheckDiskSpace,
 	}
 
@@ -140,7 +139,7 @@ func (l *LogzioSender) isEnoughDiskSpace() bool {
 	if l.checkDiskSpace {
 		usage := du.NewDiskUsage(l.dir)
 		if usage.Usage()*100 > l.diskThreshold {
-			l.debugLog("Logz.io: Dropping logs, as FS used space on %s is %g percent," +
+			l.debugLog("Logz.io: Dropping logs, as FS used space on %s is %g percent,"+
 				" and the drop threshold is %g percent",
 				l.dir, usage.Usage()*100, l.diskThreshold)
 			return false
