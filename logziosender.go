@@ -183,7 +183,7 @@ func (l *LogzioSender) tryToSendLogs() int{
 		l.debugLog("logziosender.go: Error sending logs to %s %s\n", l.url, err)
 		return httpError
 	}
-	//defer resp.Body.Close()
+	defer resp.Body.Close()
 	statusCode := resp.StatusCode
 	_, err = io.Copy(ioutil.Discard, io.LimitReader(resp.Body, respReadLimit))
 	if err != nil {
@@ -229,13 +229,9 @@ func (l *LogzioSender) Drain() {
 	defer l.mux.Unlock()
 	l.draining.Toggle()
 	defer l.draining.Toggle()
-	var (
-		err     error
-		bufSize int
-	)
 
 	l.buf.Reset()
-	bufSize = dequeueUpToMaxBatchSize(bufSize, err, l)
+	bufSize := l.dequeueUpToMaxBatchSize()
 	if bufSize > 0 {
 		backOff := sendSleepingBackoff
 		toBackOff := false
@@ -253,7 +249,12 @@ func (l *LogzioSender) Drain() {
 		}
 	}
 }
-func dequeueUpToMaxBatchSize(bufSize int, err error, l *LogzioSender) int {
+
+func (l *LogzioSender) dequeueUpToMaxBatchSize() int {
+	var (
+		bufSize int
+		err 	error
+	)
 	for bufSize < maxSize && err == nil {
 		item, err := l.queue.Dequeue()
 		if err != nil {
