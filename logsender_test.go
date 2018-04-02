@@ -23,6 +23,37 @@ import (
 	"time"
 )
 
+func TestLogzioSender_Retries(t *testing.T) {
+	var sent= make([]byte, 1024)
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		r.Body.Read(sent)
+	}))
+	defer ts.Close()
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetUrl("http://localhost:12345"),
+		SetDrainDuration(time.Minute*10),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Stop()
+	l.Send([]byte("blah"))
+	l.Drain()
+	item, err := l.queue.Dequeue()
+	// expected msg to be in queue after max retries
+	if item == nil || item.ID != 2{
+		t.Fatalf("Unexpect item in the queue - %s",string(item.Value))
+	}
+	item, err = l.queue.Dequeue()
+	// expected queue to be empty - only one requeue executed
+	if err == nil{
+		t.Fatalf("Unexpect item in the queue - %s",string(item.Value))
+	}
+}
+
 func TestLogzioSender_Send(t *testing.T) {
 	var sent = make([]byte, 1024)
 	var sentToken string
@@ -194,6 +225,7 @@ func TestLogzioSender_ThresholdLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	l.Send([]byte("blah"))
 	item, err := l.queue.Dequeue()
 	if item != nil{
@@ -213,10 +245,53 @@ func TestLogzioSender_ThresholdLimitWithoutCheck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	l.Send([]byte("blah"))
 	item, err := l.queue.Dequeue()
 	if item == nil{
 		t.Fatalf("Unexpect item in the queue - %s",string(item.Value))
+	}
+}
+
+func TestLogzioSender_RestoreQueue(t *testing.T) {
+	var sent= make([]byte, 1024)
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		r.Body.Read(sent)
+	}))
+	defer ts.Close()
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetUrl("http://localhost:12345"),
+		SetDrainDuration(time.Minute*10),
+		SetTempDirectory("./data"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.Send([]byte("blah"))
+	l.Stop()
+
+	// open queue again - same dir
+	l, err = New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetUrl("http://localhost:12345"),
+		SetDrainDuration(time.Minute*10),
+		SetTempDirectory("./data"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Stop()
+
+	item, err := l.queue.Dequeue()
+	if string(item.Value) != "blah\n"{
+		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
+	}
+	if item.ID != 2{
+		t.Fatalf("Unexpect ID number - %s", string(item.ID))
 	}
 }
 
