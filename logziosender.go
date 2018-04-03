@@ -23,6 +23,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"crypto/tls"
 
 	"github.com/beeker1121/goque"
 	"go.uber.org/atomic"
@@ -58,6 +59,8 @@ type LogzioSender struct {
 	diskThreshold 	float32
 	checkDiskSpace 	bool
 	dir           	string
+	httpClient		*http.Client
+	httpTransport	*http.Transport
 }
 
 // Sender Alias to LogzioSender
@@ -78,15 +81,29 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 		checkDiskSpace: defaultCheckDiskSpace,
 	}
 
+	tlsConfig := &tls.Config{}
+	transport := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+	// in case server side is sleeping - wait 10s instead of waiting for him to wake up
+	client := &http.Client{
+		Transport: transport,
+		Timeout: time.Second * 10,
+	}
+	l.httpClient = client
+	l.httpTransport = transport
+
 	for _, option := range options {
 		if err := option(l); err != nil {
 			return nil, err
 		}
 	}
+
 	q, err := goque.OpenQueue(l.dir)
 	if err != nil {
 		return nil, err
 	}
+
 	l.queue = q
 	go l.start()
 	return l, nil
@@ -171,14 +188,11 @@ func (l *LogzioSender) start() {
 func (l *LogzioSender) Stop() {
 	defer l.queue.Close()
 	l.Drain()
+
 }
 
 func (l *LogzioSender) tryToSendLogs() int{
-	// in case server side is sleeping - wait 10s instead of waiting for him to wake up
-	client := &http.Client{
-		Timeout: time.Second * 10,
-	}
-	resp, err := client.Post(l.url, "text/plain", l.buf)
+	resp, err := l.httpClient.Post(l.url, "text/plain", l.buf)
 	if err != nil {
 		l.debugLog("logziosender.go: Error sending logs to %s %s\n", l.url, err)
 		return httpError
