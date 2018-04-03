@@ -6,7 +6,7 @@ Sends logs to [logz.io](https://logz.io) over HTTP
 
 ## Installation
 ```shell
-$ go get -u github.com/dougEfresh/logzio
+$ go get -u github.com/dougEfresh/logzio-go
 ```
 
 ## Quick Start

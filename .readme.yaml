@@ -6,7 +6,7 @@ project: logzio-go
 installation: >-
   ```shell
 
-  $ go get -u github.com/dougEfresh/logzio
+  $ go get -u github.com/dougEfresh/logzio-go
 
   ```
 quickStart:
