@@ -331,3 +331,7 @@ func (l *LogzioSender) errorLog(format string, a ...interface{}) {
 func (l *LogzioSender) Write(p []byte) (n int, err error) {
 	return len(p), l.Send(p)
 }
+
+func (l *LogzioSender) CloseIdleConnections{
+	l.httpTransport.CloseIdleConnections()
+}
