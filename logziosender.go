@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package logzio
 
 import (
 	"bytes"
@@ -43,8 +43,6 @@ const (
 
 	httpError				= -1
 )
-
-//var newLine = byte(10) //TODO - check!!!!!
 
 // LogzioSender instance of the
 type LogzioSender struct {
