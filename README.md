@@ -6,7 +6,7 @@ Sends logs to [logz.io](https://logz.io) over HTTP
 
 ## Installation
 ```shell
-$ go get -u github.com/dougEfresh/logzio
+$ go get -u github.com/dougEfresh/logzio-go
 ```
 
 ## Quick Start
@@ -57,7 +57,9 @@ Every 5 seconds logs are sent to logz.io (if any are available)
 
 ## Examples
 
-[zapz](https://github.com/dougefresh/zapz)
+Uber Zap: [zapz](https://github.com/dougefresh/zapz)
+
+GO kit: [kitz](https://github.com/dougefresh/kitz)
 
 ## Prerequisites
 

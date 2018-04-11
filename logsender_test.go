@@ -283,8 +283,8 @@ func TestLogzioSender_ThresholdLimit(t *testing.T) {
 	fmt.Printf("flag is %v",l.fullQ)
 	l.Send([]byte("blah"))
 	item, err := l.queue.Dequeue()
-	if item != nil{
-		t.Fatalf("Unexpect item in the queue - %s",string(item.Value))
+	if item != nil {
+		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
 	}
 }
 
@@ -304,8 +304,8 @@ func TestLogzioSender_ThresholdLimitWithoutCheck(t *testing.T) {
 
 	l.Send([]byte("blah"))
 	item, err := l.queue.Dequeue()
-	if item == nil{
-		t.Fatalf("Unexpect item in the queue - %s",string(item.Value))
+	if item == nil {
+		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
 	}
 
 }
