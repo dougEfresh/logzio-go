@@ -32,34 +32,34 @@ import (
 
 const (
 	maxSize               = 3 * 1024 * 1024 // 3 mb
-	sendSleepingBackoff     = time.Second * 2
-	sendRetries             = 4
-	respReadLimit 			= int64(4096)
+	sendSleepingBackoff   = time.Second * 2
+	sendRetries           = 4
+	respReadLimit 		  = int64(4096)
 
 	defaultHost           = "https://listener.logz.io:8071"
 	defaultDrainDuration  = 5 * time.Second
 	defaultDiskThreshold  = 70.0 // represent % of the disk
 	defaultCheckDiskSpace = true
 
-	httpError				= -1
+	httpError			  = -1
 )
 
 // LogzioSender instance of the
 type LogzioSender struct {
-	queue         	*goque.Queue
-	drainDuration 	time.Duration
-	buf           	*bytes.Buffer
-	draining      	atomic.Bool
-	mux           	sync.Mutex
-	token         	string
-	url           	string
-	debug         	io.Writer
-	diskThreshold 	float32
-	checkDiskSpace 	bool
+	queue         		*goque.Queue
+	drainDuration 		time.Duration
+	buf           		*bytes.Buffer
+	draining      		atomic.Bool
+	mux           		sync.Mutex
+	token         		string
+	url           		string
+	debug         		io.Writer
+	diskThreshold 		float32
+	checkDiskSpace 		bool
 	fullQ		 		bool
 	checkDiskDuration 	time.Duration
-	dir           	string
-	httpClient 	*http.Client
+	dir           		string
+	httpClient 			*http.Client
 	httpTransport		*http.Transport
 }
 
@@ -72,13 +72,13 @@ type SenderOptionFunc func(*LogzioSender) error
 // New creates a new Logzio sender with a token and options
 func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 	l := &LogzioSender{
-		buf:           	bytes.NewBuffer(make([]byte, maxSize)),
-		drainDuration: 	defaultDrainDuration,
-		url:           	fmt.Sprintf("%s/?token=%s", defaultHost, token),
-		token:         	token,
-		dir:           	fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()),
-		diskThreshold: 	defaultDiskThreshold,
-		checkDiskSpace: defaultCheckDiskSpace,
+		buf:           		bytes.NewBuffer(make([]byte, maxSize)),
+		drainDuration: 		defaultDrainDuration,
+		url:           		fmt.Sprintf("%s/?token=%s", defaultHost, token),
+		token:         		token,
+		dir:           		fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()),
+		diskThreshold: 		defaultDiskThreshold,
+		checkDiskSpace: 	defaultCheckDiskSpace,
 		fullQ:				false,
 		checkDiskDuration:	5 * time.Second,
 	}
