@@ -332,6 +332,6 @@ func (l *LogzioSender) Write(p []byte) (n int, err error) {
 	return len(p), l.Send(p)
 }
 
-func (l *LogzioSender) CloseIdleConnections{
+func (l *LogzioSender) CloseIdleConnections(){
 	l.httpTransport.CloseIdleConnections()
 }
