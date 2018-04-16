@@ -16,6 +16,7 @@ package logzio
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -23,44 +24,43 @@ import (
 	"os"
 	"sync"
 	"time"
-	"crypto/tls"
 
 	"github.com/beeker1121/goque"
-	"go.uber.org/atomic"
 	"github.com/ricochet2200/go-disk-usage/du"
+	"go.uber.org/atomic"
 )
 
 const (
-	maxSize               = 3 * 1024 * 1024 // 3 mb
-	sendSleepingBackoff   = time.Second * 2
-	sendRetries           = 4
-	respReadLimit 		  = int64(4096)
+	maxSize             = 3 * 1024 * 1024 // 3 mb
+	sendSleepingBackoff = time.Second * 2
+	sendRetries         = 4
+	respReadLimit       = int64(4096)
 
 	defaultHost           = "https://listener.logz.io:8071"
 	defaultDrainDuration  = 5 * time.Second
 	defaultDiskThreshold  = 70.0 // represent % of the disk
 	defaultCheckDiskSpace = true
 
-	httpError			  = -1
+	httpError = -1
 )
 
 // LogzioSender instance of the
 type LogzioSender struct {
-	queue         		*goque.Queue
-	drainDuration 		time.Duration
-	buf           		*bytes.Buffer
-	draining      		atomic.Bool
-	mux           		sync.Mutex
-	token         		string
-	url           		string
-	debug         		io.Writer
-	diskThreshold 		float32
-	checkDiskSpace 		bool
-	fullQ		 		bool
-	checkDiskDuration 	time.Duration
-	dir           		string
-	httpClient 			*http.Client
-	httpTransport		*http.Transport
+	queue             *goque.Queue
+	drainDuration     time.Duration
+	buf               *bytes.Buffer
+	draining          atomic.Bool
+	mux               sync.Mutex
+	token             string
+	url               string
+	debug             io.Writer
+	diskThreshold     float32
+	checkDiskSpace    bool
+	fullDisk          bool
+	checkDiskDuration time.Duration
+	dir               string
+	httpClient        *http.Client
+	httpTransport     *http.Transport
 }
 
 // Sender Alias to LogzioSender
@@ -72,15 +72,15 @@ type SenderOptionFunc func(*LogzioSender) error
 // New creates a new Logzio sender with a token and options
 func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 	l := &LogzioSender{
-		buf:           		bytes.NewBuffer(make([]byte, maxSize)),
-		drainDuration: 		defaultDrainDuration,
-		url:           		fmt.Sprintf("%s/?token=%s", defaultHost, token),
-		token:         		token,
-		dir:           		fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()),
-		diskThreshold: 		defaultDiskThreshold,
-		checkDiskSpace: 	defaultCheckDiskSpace,
-		fullQ:				false,
-		checkDiskDuration:	5 * time.Second,
+		buf:               bytes.NewBuffer(make([]byte, maxSize)),
+		drainDuration:     defaultDrainDuration,
+		url:               fmt.Sprintf("%s/?token=%s", defaultHost, token),
+		token:             token,
+		dir:               fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()),
+		diskThreshold:     defaultDiskThreshold,
+		checkDiskSpace:    defaultCheckDiskSpace,
+		fullDisk:          false,
+		checkDiskDuration: 5 * time.Second,
 	}
 
 	tlsConfig := &tls.Config{}
@@ -90,7 +90,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 	// in case server side is sleeping - wait 10s instead of waiting for him to wake up
 	client := &http.Client{
 		Transport: transport,
-		Timeout: time.Second * 10,
+		Timeout:   time.Second * 10,
 	}
 	l.httpClient = client
 	l.httpTransport = transport
@@ -162,27 +162,27 @@ func SetDrainDiskThreshold(th int) SenderOptionFunc {
 }
 
 func (l *LogzioSender) isEnoughDiskSpace() bool {
-	for{
-		<- time.After(l.checkDiskDuration)
+	for {
+		<-time.After(l.checkDiskDuration)
 		if l.checkDiskSpace {
 			usage := du.NewDiskUsage(l.dir)
 			if usage.Usage()*100 > l.diskThreshold {
 				l.debugLog("Logz.io: Dropping logs, as FS used space on %s is %g percent,"+
 					" and the drop threshold is %g percent\n",
 					l.dir, usage.Usage()*100, l.diskThreshold)
-				l.fullQ = true
-			}else{
-				l.fullQ = false
+				l.fullDisk = true
+			} else {
+				l.fullDisk = false
 			}
-		}else {
-			l.fullQ = false
+		} else {
+			l.fullDisk = false
 		}
 	}
 }
 
 // Send the payload to logz.io
 func (l *LogzioSender) Send(payload []byte) error {
-	if !l.fullQ {
+	if !l.fullDisk {
 		_, err := l.queue.Enqueue(payload)
 		return err
 	}
@@ -200,7 +200,7 @@ func (l *LogzioSender) Stop() {
 
 }
 
-func (l *LogzioSender) tryToSendLogs() int{
+func (l *LogzioSender) tryToSendLogs() int {
 	resp, err := l.httpClient.Post(l.url, "text/plain", l.buf)
 	if err != nil {
 		l.debugLog("logziosender.go: Error sending logs to %s %s\n", l.url, err)
@@ -223,7 +223,7 @@ func (l *LogzioSender) drainTimer() {
 	}
 }
 
-func (l *LogzioSender) shouldRetry(attempt int, statusCode int) bool{
+func (l *LogzioSender) shouldRetry(attempt int, statusCode int) bool {
 	retry := true
 	switch statusCode {
 	case http.StatusBadRequest:
@@ -234,9 +234,9 @@ func (l *LogzioSender) shouldRetry(attempt int, statusCode int) bool{
 		retry = false
 	}
 
-	if !retry && statusCode != http.StatusOK{
+	if !retry && statusCode != http.StatusOK {
 		l.requeue()
-	}else if retry && attempt == (sendRetries - 1){
+	} else if retry && attempt == (sendRetries-1) {
 		l.requeue()
 	}
 	return retry
@@ -260,7 +260,7 @@ func (l *LogzioSender) Drain() {
 		backOff := sendSleepingBackoff
 		toBackOff := false
 		for attempt := 0; attempt < sendRetries; attempt++ {
-			if toBackOff{
+			if toBackOff {
 				l.debugLog("logziosender.go: failed to send logs, trying again in %v\n", backOff)
 				time.Sleep(backOff)
 				backOff *= 2
@@ -278,7 +278,7 @@ func (l *LogzioSender) Drain() {
 func (l *LogzioSender) dequeueUpToMaxBatchSize() int {
 	var (
 		bufSize int
-		err 	error
+		err     error
 	)
 	for bufSize < maxSize && err == nil {
 		item, err := l.queue.Dequeue()
@@ -332,6 +332,6 @@ func (l *LogzioSender) Write(p []byte) (n int, err error) {
 	return len(p), l.Send(p)
 }
 
-func (l *LogzioSender) CloseIdleConnections(){
+func (l *LogzioSender) CloseIdleConnections() {
 	l.httpTransport.CloseIdleConnections()
 }
