@@ -209,6 +209,7 @@ func (l *LogzioSender) tryToSendLogs() int {
 
 	defer resp.Body.Close()
 	statusCode := resp.StatusCode
+
 	_, err = io.Copy(ioutil.Discard, io.LimitReader(resp.Body, respReadLimit))
 	if err != nil {
 		l.debugLog("Error reading response body: %v", err)
