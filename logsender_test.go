@@ -23,6 +23,38 @@ import (
 	"time"
 )
 
+func TestLogzioSender_Retries(t *testing.T) {
+	var sent = make([]byte, 1024)
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		r.Body.Read(sent)
+	}))
+	defer ts.Close()
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetUrl("http://localhost:12345"),
+		SetDrainDuration(time.Minute*10),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(l.dir)
+	defer l.Stop()
+	l.Send([]byte("blah"))
+	l.Drain()
+	item, err := l.queue.Dequeue()
+	// expected msg to be in queue after max retries
+	if item == nil || item.ID != 2 {
+		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
+	}
+	item, err = l.queue.Dequeue()
+	// expected queue to be empty - only one requeue executed
+	if err == nil {
+		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
+	}
+}
+
 func TestLogzioSender_Send(t *testing.T) {
 	var sent = make([]byte, 1024)
 	var sentToken string
@@ -34,10 +66,11 @@ func TestLogzioSender_Send(t *testing.T) {
 	defer ts.Close()
 
 	l, err := New("fake-token", SetUrl(ts.URL))
-	defer l.Stop()
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(l.dir)
+
 	l.Send([]byte("blah"))
 	l.Drain()
 	time.Sleep(200 * time.Millisecond)
@@ -65,6 +98,8 @@ func TestLogzioSender_DelayStart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(l.dir)
+
 	l.Send([]byte("blah"))
 	time.Sleep(200 * time.Millisecond)
 	l.Drain()
@@ -100,6 +135,8 @@ func TestLogzioSender_TmpDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(l.dir)
+
 	l.Send([]byte("blah"))
 	time.Sleep(200 * time.Millisecond)
 	l.Drain()
@@ -131,6 +168,8 @@ func TestLogzioSender_Write(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(l.dir)
+
 	l.Write([]byte("blah"))
 	time.Sleep(200 * time.Millisecond)
 	l.Sync()
@@ -140,6 +179,49 @@ func TestLogzioSender_Write(t *testing.T) {
 	}
 	if sentMsg != "blah\n" {
 		t.Fatalf("%s != %s ", string(sent), string(sentMsg))
+	}
+}
+
+func TestLogzioSender_RestoreQueue(t *testing.T) {
+	var sent = make([]byte, 1024)
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		r.Body.Read(sent)
+	}))
+	defer ts.Close()
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetUrl("http://localhost:12345"),
+		SetDrainDuration(time.Minute*10),
+		SetTempDirectory("./data"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(l.dir)
+
+	l.Send([]byte("blah"))
+	l.Stop()
+
+	// open queue again - same dir
+	l, err = New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetUrl("http://localhost:12345"),
+		SetDrainDuration(time.Minute*10),
+		SetTempDirectory("./data"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	item, err := l.queue.Dequeue()
+	if string(item.Value) != "blah\n" {
+		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
+	}
+	if item.ID != 2 {
+		t.Fatalf("Unexpect ID number - %s", string(item.ID))
 	}
 }
 
@@ -168,6 +250,8 @@ func TestLogzioSender_Unauth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(l.dir)
+
 	l.Write([]byte("blah"))
 	time.Sleep(200 * time.Millisecond)
 	l.Sync()
@@ -194,6 +278,9 @@ func TestLogzioSender_ThresholdLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(l.dir)
+	<-time.After(l.checkDiskDuration + time.Second*2)
+	fmt.Printf("flag is %v", l.fullDisk)
 	l.Send([]byte("blah"))
 	item, err := l.queue.Dequeue()
 	if item != nil {
@@ -213,11 +300,14 @@ func TestLogzioSender_ThresholdLimitWithoutCheck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(l.dir)
+
 	l.Send([]byte("blah"))
 	item, err := l.queue.Dequeue()
 	if item == nil {
 		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
 	}
+
 }
 
 func BenchmarkLogzioSender(b *testing.B) {
