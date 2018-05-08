@@ -83,6 +83,8 @@ See [travis.yaml](.travis.yml) for running benchmark tests
 ## Authors
 
 * **Douglas Chimento**  - [dougEfresh][me]
+* **Ido Halevi**  - [idohalevi](https://github.com/idohalevi)
+
 
 ## License
 
