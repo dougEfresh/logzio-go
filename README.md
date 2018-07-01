@@ -1,6 +1,6 @@
 # Logzio Golang API client
 
-Sends logs to [logz.io](https://logz.io) over HTTP.It is a low level lib that can to be integrated with other logging libs.
+Sends logs to [logz.io](https://logz.io) over HTTP. It is a low level lib that can to be integrated with other logging libs.
 
 [![GoDoc][doc-img]][doc] [![Build Status][ci-img]][ci] [![Coverage Status][cov-img]][cov] [![Go Report][report-img]][report]
 
@@ -100,7 +100,6 @@ This project is licensed under the Apache License - see the [LICENSE](LICENSE) f
 
 * [logzio-java-sender](https://github.com/logzio/logzio-java-sender)
 
-### TODO
 
 [doc-img]: https://godoc.org/github.com/dougEfresh/logzio-go?status.svg
 [doc]: https://godoc.org/github.com/dougEfresh/logzio-go
