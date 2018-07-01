@@ -1,8 +1,11 @@
 # Logzio Golang API client
 
-Sends logs to [logz.io](https://logz.io) over HTTP
+Sends logs to [logz.io](https://logz.io) over HTTP.It is a low level lib that can to be integrated with other logging libs.
 
 [![GoDoc][doc-img]][doc] [![Build Status][ci-img]][ci] [![Coverage Status][cov-img]][cov] [![Go Report][report-img]][report]
+
+## Prerequisites
+go 1.x
 
 ## Installation
 ```shell
@@ -27,8 +30,8 @@ func main() {
   		SetDebug(os.Stderr),
   		SetUrl("http://localhost:12345"),
   		SetDrainDuration(time.Minute*10),
-      SetSetTempDirectory("myQueue"),
-      SetDrainDiskThreshold(99)
+        SetSetTempDirectory("myQueue"),
+        SetDrainDiskThreshold(99)
   	) // token is required
   if err != nil {
     panic(err)
@@ -43,9 +46,6 @@ func main() {
   l.Stop() //logs are buffered on disk. Stop will drain the buffer
 }
 ```
-
-
-logzio sender is a low level lib meant to be integrated with other logging libs
 
 ## Usage
 
@@ -72,13 +72,6 @@ logzio sender is a low level lib meant to be integrated with other logging libs
 Logzio go client uses [goleveldb](https://github.com/syndtr/goleveldb) and [goqueue](github.com/beeker1121/goque) as a persistent storage.
 Every 5 seconds logs are sent to logz.io (if any are available)
 
-## Examples
-
-
-## Prerequisites
-
-go 1.x
-
 ## Tests
 
 ```shell
@@ -89,7 +82,6 @@ $ go test -v
 
 See [travis.yaml](.travis.yml) for running benchmark tests
 
-## Deployment
 
 ## Contributing
  All PRs are welcome
