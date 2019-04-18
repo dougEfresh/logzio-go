@@ -15,10 +15,10 @@ $ go get -u github.com/logzio/logzio-go
 package main
 
 import (
-"fmt"
-"github.com/logzio/logzio-go"
-"os"
-"time"
+  "fmt"
+  "github.com/logzio/logzio-go"
+  "os"
+  "time"
 )
 
 func main() {
