@@ -1,8 +1,11 @@
 # Logzio Golang API client
 
-Sends logs to [logz.io](https://logz.io) over HTTP
+Sends logs to [logz.io](https://logz.io) over HTTP. It is a low level lib that can to be integrated with other logging libs.
 
 [![GoDoc][doc-img]][doc] [![Build Status][ci-img]][ci] [![Coverage Status][cov-img]][cov] [![Go Report][report-img]][report]
+
+## Prerequisites
+go 1.x
 
 ## Installation
 ```shell
@@ -22,7 +25,14 @@ import (
 )
 
 func main() {
-  l, err := logzio.New(os.Args[1]) // Token is required
+  l, err := logzio.New(
+  		"fake-token",
+  		SetDebug(os.Stderr),
+  		SetUrl("http://localhost:12345"),
+  		SetDrainDuration(time.Minute*10),
+        SetSetTempDirectory("myQueue"),
+        SetDrainDiskThreshold(99)
+  	) // token is required
   if err != nil {
     panic(err)
   }
@@ -37,33 +47,30 @@ func main() {
 }
 ```
 
-
-logzio sender is a low level lib meant to be integrated with other logging libs
-
 ## Usage
 
-Setting drain duration (flush logs on disk) : `logzio.New(token, SetDrainDuration(time.Hour))`
+- Set url mode:
+    `logzio.New(token, SetUrl(ts.URL))`
 
-Setting url mode: `logzio.New(token, SetUrl(ts.URL))`
+- Set drain duration (flush logs on disk):
+    `logzio.New(token, SetDrainDuration(time.Hour))`
 
-Setting debug mode: `logzio.New(token, SetDebug(os.Stderr))`
+- Set debug mode:
+    `logzio.New(token, SetDebug(os.Stderr))`
 
-Setting queue dir: `logzio.New(token, SetSetTempDirectory(os.Stderr))`
+- Set queue dir:
+    `logzio.New(token, SetSetTempDirectory(os.Stderr))`
+
+- Set the sender to check if it crosses the maximum allowed disk usage:
+    `logzio.New(token, SetCheckDiskSpace(true))`
+
+- Set disk queue threshold, once the threshold is crossed the sender will not enqueue the received logs:
+    `logzio.New(token, SetDrainDiskThreshold(99))`
 
 ## Disk queue
 
 Logzio go client uses [goleveldb](https://github.com/syndtr/goleveldb) and [goqueue](github.com/beeker1121/goque) as a persistent storage.
 Every 5 seconds logs are sent to logz.io (if any are available)
-
-## Examples
-
-Uber Zap: [zapz](https://github.com/dougefresh/zapz)
-
-GO kit: [kitz](https://github.com/dougefresh/kitz)
-
-## Prerequisites
-
-go 1.x
 
 ## Tests
 
@@ -75,7 +82,6 @@ $ go test -v
 
 See [travis.yaml](.travis.yml) for running benchmark tests
 
-## Deployment
 
 ## Contributing
  All PRs are welcome
