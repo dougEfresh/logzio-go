@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/beeker1121/goque"
-	"github.com/ricochet2200/go-disk-usage/du"
+	"github.com/shirou/gopsutil/disk"
 	"go.uber.org/atomic"
 )
 
@@ -161,15 +161,22 @@ func SetDrainDiskThreshold(th int) SenderOptionFunc {
 	}
 }
 
-func (l *LogzioSender) isEnoughDiskSpace() bool {
+func (l *LogzioSender) isEnoughDiskSpace() {
 	for {
 		<-time.After(l.checkDiskDuration)
 		if l.checkDiskSpace {
-			usage := du.NewDiskUsage(l.dir)
-			if usage.Usage()*100 > l.diskThreshold {
+			diskStat, err := disk.Usage(l.dir)
+			if err != nil {
+				l.debugLog("logziosender.go: failed to get disk usage: %v\n", err)
+				l.checkDiskSpace = false
+				return
+			}
+
+			usage := float32(diskStat.UsedPercent)
+			if usage > l.diskThreshold {
 				l.debugLog("Logz.io: Dropping logs, as FS used space on %s is %g percent,"+
 					" and the drop threshold is %g percent\n",
-					l.dir, usage.Usage()*100, l.diskThreshold)
+					l.dir, usage, l.diskThreshold)
 				l.fullDisk = true
 			} else {
 				l.fullDisk = false
