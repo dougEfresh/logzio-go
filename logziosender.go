@@ -26,8 +26,8 @@ import (
 	"time"
 
 	"github.com/beeker1121/goque"
-	"go.uber.org/atomic"
 	"github.com/shirou/gopsutil/disk"
+	"go.uber.org/atomic"
 )
 
 const (
