@@ -6,7 +6,7 @@ Sends logs to [logz.io](https://logz.io) over HTTP
 
 ## Installation
 ```shell
-$ go get -u github.com/dougEfresh/logzio-go
+$ go get -u github.com/logzio/logzio-go
 ```
 
 ## Quick Start
@@ -16,7 +16,7 @@ package main
 
 import (
 "fmt"
-"github.com/dougEfresh/logzio-go"
+"github.com/logzio/logzio-go"
 "os"
 "time"
 )
@@ -93,17 +93,3 @@ This project is licensed under the Apache License - see the [LICENSE](LICENSE) f
 ## Acknowledgments
 
 * [logzio-java-sender](https://github.com/logzio/logzio-java-sender)
-
-### TODO
-
-[doc-img]: https://godoc.org/github.com/dougEfresh/logzio-go?status.svg
-[doc]: https://godoc.org/github.com/dougEfresh/logzio-go
-[ci-img]: https://travis-ci.org/dougEfresh/logzio-go.svg?branch=master
-[ci]: https://travis-ci.org/dougEfresh/logzio-go
-[cov-img]: https://codecov.io/gh/dougEfresh/logzio-go/branch/master/graph/badge.svg
-[cov]: https://codecov.io/gh/dougEfresh/logzio-go
-[glide.lock]: https://github.com/uber-go/zap/blob/master/glide.lock
-[zap]: https://github.com/uber-go/zap
-[me]: https://github.com/dougEfresh
-[report-img]: https://goreportcard.com/badge/github.com/dougEfresh/logzio-go
-[report]: https://goreportcard.com/report/github.com/dougEfresh/logzio-go
