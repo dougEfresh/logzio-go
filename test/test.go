@@ -19,7 +19,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/dougEfresh/logzio-go"
+	"github.com/logzio/logzio-go"
 )
 
 func main() {
