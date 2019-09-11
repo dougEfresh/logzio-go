@@ -207,21 +207,20 @@ func (l *LogzioSender) Stop() {
 
 }
 
-func (l *LogzioSender) tryToSendLogs() int {
+func (l *LogzioSender) tryToSendLogs() (int, string) {
 	resp, err := l.httpClient.Post(l.url, "text/plain", l.buf)
 	if err != nil {
 		l.debugLog("logziosender.go: Error sending logs to %s %s\n", l.url, err)
-		return httpError
+		return httpError, ""
 	}
 
 	defer resp.Body.Close()
 	statusCode := resp.StatusCode
-
-	_, err = io.Copy(ioutil.Discard, io.LimitReader(resp.Body, respReadLimit))
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		l.debugLog("Error reading response body: %v", err)
 	}
-	return statusCode
+	return statusCode, string(body)
 }
 
 func (l *LogzioSender) drainTimer() {
@@ -231,7 +230,7 @@ func (l *LogzioSender) drainTimer() {
 	}
 }
 
-func (l *LogzioSender) shouldRetry(attempt int, statusCode int) bool {
+func (l *LogzioSender) shouldRetry(attempt int, statusCode int, responseMsg string) bool {
 	retry := true
 	switch statusCode {
 	case http.StatusBadRequest:
@@ -243,7 +242,7 @@ func (l *LogzioSender) shouldRetry(attempt int, statusCode int) bool {
 	}
 
 	if !retry && statusCode != http.StatusOK {
-		l.requeue()
+		l.debugLog("got error response from server: " + responseMsg)
 	} else if retry && attempt == (sendRetries-1) {
 		l.requeue()
 	}
@@ -273,8 +272,8 @@ func (l *LogzioSender) Drain() {
 				time.Sleep(backOff)
 				backOff *= 2
 			}
-			statusCode := l.tryToSendLogs()
-			if l.shouldRetry(attempt, statusCode) {
+			statusCode, body := l.tryToSendLogs()
+			if l.shouldRetry(attempt, statusCode, body) {
 				toBackOff = true
 			} else {
 				break
