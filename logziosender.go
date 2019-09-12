@@ -42,6 +42,9 @@ const (
 	httpError = -1
 )
 
+// Sender Alias to LogzioSender
+type Sender LogzioSender
+
 // LogzioSender instance of the
 type LogzioSender struct {
 	queue             *goque.Queue
