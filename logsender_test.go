@@ -33,7 +33,7 @@ func TestLogzioSender_Retries(t *testing.T) {
 	l, err := New(
 		"fake-token",
 		SetDebug(os.Stderr),
-		SetURL("http://localhost:12345"),
+		SetUrl("http://localhost:12345"),
 		SetDrainDuration(time.Minute*10),
 	)
 	if err != nil {
@@ -65,7 +65,7 @@ func TestLogzioSender_Send(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	l, err := New("fake-token", SetURL(ts.URL))
+	l, err := New("fake-token", SetUrl(ts.URL))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestLogzioSender_DelayStart(t *testing.T) {
 	l, err := New(
 		"fake-token",
 		SetDebug(os.Stderr),
-		SetURL("http://localhost:12345"),
+		SetUrl("http://localhost:12345"),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -104,7 +104,7 @@ func TestLogzioSender_DelayStart(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	l.Drain()
 	ts.Start()
-	SetURL(ts.URL)(l)
+	SetUrl(ts.URL)(l)
 	l.Drain()
 	time.Sleep(500 * time.Millisecond)
 	sentMsg := string(sent[0:5])
@@ -130,7 +130,7 @@ func TestLogzioSender_TmpDir(t *testing.T) {
 		SetDebug(os.Stderr),
 		SetTempDirectory(tmp),
 		SetDrainDuration(time.Minute),
-		SetURL(ts.URL),
+		SetUrl(ts.URL),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -163,7 +163,7 @@ func TestLogzioSender_Write(t *testing.T) {
 		SetDebug(os.Stderr),
 		SetTempDirectory(tmp),
 		SetDrainDuration(time.Minute),
-		SetURL(ts.URL),
+		SetUrl(ts.URL),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -192,7 +192,7 @@ func TestLogzioSender_RestoreQueue(t *testing.T) {
 	l, err := New(
 		"fake-token",
 		SetDebug(os.Stderr),
-		SetURL("http://localhost:12345"),
+		SetUrl("http://localhost:12345"),
 		SetDrainDuration(time.Minute*10),
 		SetTempDirectory("./data"),
 	)
@@ -208,7 +208,7 @@ func TestLogzioSender_RestoreQueue(t *testing.T) {
 	l, err = New(
 		"fake-token",
 		SetDebug(os.Stderr),
-		SetURL("http://localhost:12345"),
+		SetUrl("http://localhost:12345"),
 		SetDrainDuration(time.Minute*10),
 		SetTempDirectory("./data"),
 	)
@@ -245,7 +245,7 @@ func TestLogzioSender_Unauth(t *testing.T) {
 		SetDebug(os.Stderr),
 		SetTempDirectory(tmp),
 		SetDrainDuration(time.Minute),
-		SetURL(ts.URL),
+		SetUrl(ts.URL),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -271,7 +271,7 @@ func TestLogzioSender_ThresholdLimit(t *testing.T) {
 	l, err := New(
 		"fake-token",
 		SetDebug(os.Stderr),
-		SetURL("http://localhost:12345"),
+		SetUrl("http://localhost:12345"),
 		SetDrainDiskThreshold(0),
 		SetDrainDuration(time.Minute),
 	)
@@ -292,7 +292,7 @@ func TestLogzioSender_ThresholdLimitWithoutCheck(t *testing.T) {
 	l, err := New(
 		"fake-token",
 		SetDebug(os.Stderr),
-		SetURL("http://localhost:12345"),
+		SetUrl("http://localhost:12345"),
 		SetDrainDiskThreshold(0),
 		SetCheckDiskSpace(false),
 		SetDrainDuration(time.Minute),
@@ -315,7 +315,7 @@ func BenchmarkLogzioSender(b *testing.B) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	l, _ := New("fake-token", SetURL(ts.URL), SetDrainDuration(time.Hour))
+	l, _ := New("fake-token", SetUrl(ts.URL), SetDrainDuration(time.Hour))
 	defer ts.Close()
 	defer l.Stop()
 	msg := []byte("test")

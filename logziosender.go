@@ -42,8 +42,8 @@ const (
 	httpError = -1
 )
 
-// Sender instance of the
-type Sender struct {
+// LogzioSender instance of the
+type LogzioSender struct {
 	queue             *goque.Queue
 	drainDuration     time.Duration
 	buf               *bytes.Buffer
@@ -62,11 +62,11 @@ type Sender struct {
 }
 
 // SenderOptionFunc options for logz
-type SenderOptionFunc func(*Sender) error
+type SenderOptionFunc func(*LogzioSender) error
 
 // New creates a new Logzio sender with a token and options
-func New(token string, options ...SenderOptionFunc) (*Sender, error) {
-	l := &Sender{
+func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
+	l := &LogzioSender{
 		buf:               bytes.NewBuffer(make([]byte, maxSize)),
 		drainDuration:     defaultDrainDuration,
 		url:               fmt.Sprintf("%s/?token=%s", defaultHost, token),
@@ -109,15 +109,15 @@ func New(token string, options ...SenderOptionFunc) (*Sender, error) {
 
 // SetTempDirectory Use this temporary dir
 func SetTempDirectory(dir string) SenderOptionFunc {
-	return func(l *Sender) error {
+	return func(l *LogzioSender) error {
 		l.dir = dir
 		return nil
 	}
 }
 
-// SetURL set the url which maybe different from the defaultUrl
-func SetURL(url string) SenderOptionFunc {
-	return func(l *Sender) error {
+// SetUrl set the url which maybe different from the defaultUrl
+func SetUrl(url string) SenderOptionFunc {
+	return func(l *LogzioSender) error {
 		l.url = fmt.Sprintf("%s/?token=%s", url, l.token)
 		l.debugLog("logziosender.go: Setting url to %s\n", l.url)
 		return nil
@@ -126,7 +126,7 @@ func SetURL(url string) SenderOptionFunc {
 
 // SetDebug mode and send logs to this writer
 func SetDebug(debug io.Writer) SenderOptionFunc {
-	return func(l *Sender) error {
+	return func(l *LogzioSender) error {
 		l.debug = debug
 		return nil
 	}
@@ -134,7 +134,7 @@ func SetDebug(debug io.Writer) SenderOptionFunc {
 
 // SetDrainDuration to change the interval between drains
 func SetDrainDuration(duration time.Duration) SenderOptionFunc {
-	return func(l *Sender) error {
+	return func(l *LogzioSender) error {
 		l.drainDuration = duration
 		return nil
 	}
@@ -142,7 +142,7 @@ func SetDrainDuration(duration time.Duration) SenderOptionFunc {
 
 // SetCheckDiskSpace to check if it crosses the maximum allowed disk usage
 func SetCheckDiskSpace(check bool) SenderOptionFunc {
-	return func(l *Sender) error {
+	return func(l *LogzioSender) error {
 		l.checkDiskSpace = check
 		return nil
 	}
@@ -150,13 +150,13 @@ func SetCheckDiskSpace(check bool) SenderOptionFunc {
 
 // SetDrainDiskThreshold to change the maximum used disk space
 func SetDrainDiskThreshold(th int) SenderOptionFunc {
-	return func(l *Sender) error {
+	return func(l *LogzioSender) error {
 		l.diskThreshold = float32(th)
 		return nil
 	}
 }
 
-func (l *Sender) isEnoughDiskSpace() {
+func (l *LogzioSender) isEnoughDiskSpace() {
 	for {
 		<-time.After(l.checkDiskDuration)
 		if l.checkDiskSpace {
@@ -183,7 +183,7 @@ func (l *Sender) isEnoughDiskSpace() {
 }
 
 // Send the payload to logz.io
-func (l *Sender) Send(payload []byte) error {
+func (l *LogzioSender) Send(payload []byte) error {
 	if !l.fullDisk {
 		_, err := l.queue.Enqueue(payload)
 		return err
@@ -191,18 +191,18 @@ func (l *Sender) Send(payload []byte) error {
 	return nil
 }
 
-func (l *Sender) start() {
+func (l *LogzioSender) start() {
 	l.drainTimer()
 }
 
 // Stop will close the LevelDB queue and do a final drain
-func (l *Sender) Stop() {
+func (l *LogzioSender) Stop() {
 	defer l.queue.Close()
 	l.Drain()
 
 }
 
-func (l *Sender) tryToSendLogs() (int, string) {
+func (l *LogzioSender) tryToSendLogs() (int, string) {
 	resp, err := l.httpClient.Post(l.url, "text/plain", l.buf)
 	if err != nil {
 		l.debugLog("logziosender.go: Error sending logs to %s %s\n", l.url, err)
@@ -218,14 +218,14 @@ func (l *Sender) tryToSendLogs() (int, string) {
 	return statusCode, string(body)
 }
 
-func (l *Sender) drainTimer() {
+func (l *LogzioSender) drainTimer() {
 	for {
 		time.Sleep(l.drainDuration)
 		l.Drain()
 	}
 }
 
-func (l *Sender) shouldRetry(attempt int, statusCode int, responseMsg string) bool {
+func (l *LogzioSender) shouldRetry(attempt int, statusCode int, responseMsg string) bool {
 	retry := true
 	switch statusCode {
 	case http.StatusBadRequest:
@@ -245,7 +245,7 @@ func (l *Sender) shouldRetry(attempt int, statusCode int, responseMsg string) bo
 }
 
 // Drain - Send remaining logs
-func (l *Sender) Drain() {
+func (l *LogzioSender) Drain() {
 	if l.draining.Load() {
 		l.debugLog("logziosender.go: Already draining\n")
 		return
@@ -277,7 +277,7 @@ func (l *Sender) Drain() {
 	}
 }
 
-func (l *Sender) dequeueUpToMaxBatchSize() int {
+func (l *LogzioSender) dequeueUpToMaxBatchSize() int {
 	var (
 		bufSize int
 		err     error
@@ -307,12 +307,12 @@ func (l *Sender) dequeueUpToMaxBatchSize() int {
 }
 
 // Sync drains the queue
-func (l *Sender) Sync() error {
+func (l *LogzioSender) Sync() error {
 	l.Drain()
 	return nil
 }
 
-func (l *Sender) requeue() {
+func (l *LogzioSender) requeue() {
 	l.debugLog("logziosender.go: Requeue %s", l.buf.String())
 	err := l.Send(l.buf.Bytes())
 	if err != nil {
@@ -320,21 +320,21 @@ func (l *Sender) requeue() {
 	}
 }
 
-func (l *Sender) debugLog(format string, a ...interface{}) {
+func (l *LogzioSender) debugLog(format string, a ...interface{}) {
 	if l.debug != nil {
 		fmt.Fprintf(l.debug, format, a...)
 	}
 }
 
-func (l *Sender) errorLog(format string, a ...interface{}) {
+func (l *LogzioSender) errorLog(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, a...)
 }
 
-func (l *Sender) Write(p []byte) (n int, err error) {
+func (l *LogzioSender) Write(p []byte) (n int, err error) {
 	return len(p), l.Send(p)
 }
 
 // CloseIdleConnections to close all remaining open connections
-func (l *Sender) CloseIdleConnections() {
+func (l *LogzioSender) CloseIdleConnections() {
 	l.httpTransport.CloseIdleConnections()
 }
