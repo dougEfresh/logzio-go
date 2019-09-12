@@ -31,14 +31,12 @@ import (
 )
 
 const (
-	maxSize             = 3 * 1024 * 1024 // 3 mb
-	sendSleepingBackoff = time.Second * 2
-	sendRetries         = 4
-	respReadLimit       = int64(4096)
-
+	maxSize               = 3 * 1024 * 1024 // 3 mb
+	sendSleepingBackoff   = time.Second * 2
+	sendRetries           = 4
 	defaultHost           = "https://listener.logz.io:8071"
 	defaultDrainDuration  = 5 * time.Second
-	defaultDiskThreshold  = 70.0 // represent % of the disk
+	defaultDiskThreshold  = 90.0 // represent % of the disk
 	defaultCheckDiskSpace = true
 
 	httpError = -1
@@ -145,7 +143,7 @@ func SetDrainDuration(duration time.Duration) SenderOptionFunc {
 	}
 }
 
-// SetDrainDiskThreshold to change the maximum used disk space
+// SetCheckDiskSpace to check if it crosses the maximum allowed disk usage
 func SetCheckDiskSpace(check bool) SenderOptionFunc {
 	return func(l *LogzioSender) error {
 		l.checkDiskSpace = check
