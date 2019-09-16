@@ -31,18 +31,19 @@ import (
 )
 
 const (
-	maxSize             = 3 * 1024 * 1024 // 3 mb
-	sendSleepingBackoff = time.Second * 2
-	sendRetries         = 4
-	respReadLimit       = int64(4096)
-
+	maxSize               = 3 * 1024 * 1024 // 3 mb
+	sendSleepingBackoff   = time.Second * 2
+	sendRetries           = 4
 	defaultHost           = "https://listener.logz.io:8071"
 	defaultDrainDuration  = 5 * time.Second
-	defaultDiskThreshold  = 70.0 // represent % of the disk
+	defaultDiskThreshold  = 95.0 // represent % of the disk
 	defaultCheckDiskSpace = true
 
 	httpError = -1
 )
+
+// Sender Alias to LogzioSender
+type Sender LogzioSender
 
 // LogzioSender instance of the
 type LogzioSender struct {
@@ -62,9 +63,6 @@ type LogzioSender struct {
 	httpClient        *http.Client
 	httpTransport     *http.Transport
 }
-
-// Sender Alias to LogzioSender
-type Sender LogzioSender
 
 // SenderOptionFunc options for logz
 type SenderOptionFunc func(*LogzioSender) error
@@ -145,7 +143,7 @@ func SetDrainDuration(duration time.Duration) SenderOptionFunc {
 	}
 }
 
-// SetDrainDiskThreshold to change the maximum used disk space
+// SetCheckDiskSpace to check if it crosses the maximum allowed disk usage
 func SetCheckDiskSpace(check bool) SenderOptionFunc {
 	return func(l *LogzioSender) error {
 		l.checkDiskSpace = check
@@ -216,10 +214,12 @@ func (l *LogzioSender) tryToSendLogs() int {
 
 	defer resp.Body.Close()
 	statusCode := resp.StatusCode
-
-	_, err = io.Copy(ioutil.Discard, io.LimitReader(resp.Body, respReadLimit))
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		l.debugLog("Error reading response body: %v", err)
+	}
+	if statusCode != http.StatusOK {
+		l.debugLog("got error response from server: ", string(body))
 	}
 	return statusCode
 }
@@ -242,9 +242,7 @@ func (l *LogzioSender) shouldRetry(attempt int, statusCode int) bool {
 		retry = false
 	}
 
-	if !retry && statusCode != http.StatusOK {
-		l.requeue()
-	} else if retry && attempt == (sendRetries-1) {
+	if retry && attempt == (sendRetries-1) {
 		l.requeue()
 	}
 	return retry
@@ -340,6 +338,7 @@ func (l *LogzioSender) Write(p []byte) (n int, err error) {
 	return len(p), l.Send(p)
 }
 
+// CloseIdleConnections to close all remaining open connections
 func (l *LogzioSender) CloseIdleConnections() {
 	l.httpTransport.CloseIdleConnections()
 }
