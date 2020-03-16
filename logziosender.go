@@ -83,6 +83,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 
 	tlsConfig := &tls.Config{}
 	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
 		TLSClientConfig: tlsConfig,
 	}
 	// in case server side is sleeping - wait 10s instead of waiting for him to wake up
