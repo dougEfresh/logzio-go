@@ -39,7 +39,7 @@ const (
 	defaultDrainDuration  = 5 * time.Second
 	defaultDiskThreshold  = 95.0 // represent % of the disk
 	defaultCheckDiskSpace = true
-	defaultQueueMaxLength = 1000
+	defaultQueueMaxLength = 9 * 1024 * 1024 // 9 mb
 
 	httpError = -1
 )
@@ -136,7 +136,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 //	}
 //}
 
-// SetInMemoryQueue to change the default disk queue
+// SetinMemoryCapacity to change the default capacity
 func SetinMemoryCapacity(size uint64) SenderOptionFunc {
 	return func(l *LogzioSender) error {
 		l.inMemoryCapacity = size
@@ -226,10 +226,8 @@ func (l *LogzioSender) isEnoughDiskSpace() {
 		}
 	}
 }
-
 func (l *LogzioSender) isEnoughMemory(dataSize uint64) bool {
 	usage := l.queue.Length()
-	l.debugLog("Current memory usage: %d\n", usage)
 	if usage+dataSize >= l.inMemoryCapacity {
 		l.debugLog("Logz.io: Dropping logs, the max capacity is %d and %d is requested, Request size: %d\n", l.inMemoryCapacity, usage+dataSize, dataSize)
 		//l.fullCapacity = true
@@ -269,19 +267,19 @@ func (l *LogzioSender) Stop() {
 func (l *LogzioSender) tryToSendLogs() int {
 	resp, err := l.httpClient.Post(l.url, "text/plain", l.buf)
 	if err != nil {
-		l.debugLog("logziosender.go: Error sending logs to %s %s\n", l.url, err)
+		//l.debugLog("logziosender.go: Error sending logs to %s %s\n", l.url, err)
 		return httpError
 	}
 
 	defer resp.Body.Close()
 	statusCode := resp.StatusCode
-	body, err := ioutil.ReadAll(resp.Body)
+	_, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		l.debugLog("Error reading response body: %v", err)
 	}
-	if statusCode != http.StatusOK {
-		l.debugLog("got error response from server: %v", string(body))
-	}
+	//if statusCode != http.StatusOK {
+	//	l.debugLog("got error response from server: %v", string(body))
+	//}
 	return statusCode
 }
 
@@ -292,19 +290,23 @@ func (l *LogzioSender) drainTimer() {
 	}
 }
 
-func (l *LogzioSender) shouldRetry(attempt int, statusCode int) bool {
+func (l *LogzioSender) shouldRetry(statusCode int) bool {
 	retry := true
 	switch statusCode {
 	case http.StatusBadRequest:
+		l.debugLog("Got HTTP %d bad request, skip retry\n", statusCode)
+		retry = false
+	case http.StatusNotFound:
+		l.debugLog("Got HTTP %d not found, skip retry\n", statusCode)
 		retry = false
 	case http.StatusUnauthorized:
+		l.debugLog("Got HTTP %d unauthorized, skip retry\n", statusCode)
+		retry = false
+	case http.StatusForbidden:
+		l.debugLog("Got HTTP %d forbidden, skip retry\n", statusCode)
 		retry = false
 	case http.StatusOK:
 		retry = false
-	}
-
-	if retry && attempt == (sendRetries-1) {
-		l.requeue()
 	}
 	return retry
 }
@@ -333,8 +335,11 @@ func (l *LogzioSender) Drain() {
 				backOff *= 2
 			}
 			statusCode := l.tryToSendLogs()
-			if l.shouldRetry(attempt, statusCode) {
+			if l.shouldRetry(statusCode) {
 				toBackOff = true
+				if attempt == (sendRetries - 1) {
+					l.requeue()
+				}
 			} else {
 				break
 			}

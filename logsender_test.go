@@ -90,24 +90,6 @@ func TestLogzioSender_InMemoryCapacityLimit(t *testing.T) {
 
 }
 
-func TestLogzioSender_example(t *testing.T) {
-	l, err := New("",
-		SetInMemoryQueue(true),
-	//SetCheckCapacity(true),
-	)
-	if err != nil {
-		panic(err)
-	}
-	msg := fmt.Sprintf("{ \"%s\": \"%s\"}", "message", "yotam-gogogo")
-
-	err = l.Send([]byte(msg))
-	if err != nil {
-		panic(err)
-	}
-
-	l.Stop() //logs are buffered on disk. Stop will drain the buffer
-}
-
 func TestLogzioSender_InMemorySend(t *testing.T) {
 	var sent = make([]byte, 1024)
 	var sentToken string
@@ -141,6 +123,184 @@ func TestLogzioSender_InMemorySend(t *testing.T) {
 	if item != nil {
 		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
 	}
+	l.Stop()
+}
+
+func TestLogzioSender_ShouldRetry(t *testing.T) {
+	//var sent = make([]byte, 1024)
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetUrl("http://localhost:12345"),
+		SetDrainDuration(time.Minute*10),
+		SetInMemoryQueue(true),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Stop()
+	retry := l.shouldRetry(200)
+	if retry != false {
+		t.Fatalf("Should be false")
+	}
+	retry = l.shouldRetry(404)
+	if retry != false {
+		t.Fatalf("Should be false")
+	}
+	retry = l.shouldRetry(401)
+	if retry != false {
+		t.Fatalf("Should be false")
+	}
+	retry = l.shouldRetry(403)
+	if retry != false {
+		t.Fatalf("Should be false")
+	}
+	retry = l.shouldRetry(400)
+	if retry != false {
+		t.Fatalf("Should be false")
+	}
+	retry = l.shouldRetry(500)
+	if retry != true {
+		t.Fatalf("Should be true")
+	}
+}
+
+func TestLogzioSender_InMemoryDelayStart(t *testing.T) {
+	var sent = make([]byte, 1024)
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		r.Body.Read(sent)
+	}))
+	defer ts.Close()
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetUrl("http://localhost:12345"),
+		SetInMemoryQueue(true),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.Send([]byte("blah"))
+	time.Sleep(200 * time.Millisecond)
+	l.Drain()
+	ts.Start()
+	SetUrl(ts.URL)(l)
+	l.Drain()
+	time.Sleep(500 * time.Millisecond)
+	sentMsg := string(sent[0:5])
+	if len(sentMsg) != 5 {
+		t.Fatalf("Wrong len of msg %d", len(sentMsg))
+	}
+	if sentMsg != "blah\n" {
+		t.Fatalf("%s != %s ", sent, sentMsg)
+	}
+	l.Stop()
+}
+
+func TestLogzioSender_InMemoryUnauth(t *testing.T) {
+	var sent = make([]byte, 1024)
+	cnt := 0
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cnt++
+		if cnt == 2 {
+			w.WriteHeader(http.StatusAccepted)
+		} else {
+			w.WriteHeader(http.StatusUnauthorized)
+		}
+		r.Body.Read(sent)
+	}))
+	ts.Start()
+	defer ts.Close()
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		//SetTempDirectory(tmp),
+		SetDrainDuration(time.Minute),
+		SetUrl(ts.URL),
+		SetInMemoryQueue(true),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.Write([]byte("blah"))
+	time.Sleep(200 * time.Millisecond)
+	l.Sync()
+	time.Sleep(100 * time.Millisecond)
+	l.Drain()
+	time.Sleep(100 * time.Millisecond)
+	sentMsg := string(sent[0:5])
+	if len(sentMsg) != 5 {
+		t.Fatalf("Wrong len of msg %d", len(sentMsg))
+	}
+	if sentMsg != "blah\n" {
+		t.Fatalf("%s != %s ", string(sent), string(sentMsg))
+	}
+	l.Stop()
+}
+
+func TestLogzioSender_InMemoryWrite(t *testing.T) {
+	var sent = make([]byte, 1024)
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		r.Body.Read(sent)
+	}))
+	ts.Start()
+	defer ts.Close()
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetDrainDuration(time.Minute),
+		SetUrl(ts.URL),
+		SetInMemoryQueue(true),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.Write([]byte("blah"))
+	time.Sleep(200 * time.Millisecond)
+	l.Sync()
+	sentMsg := string(sent[0:5])
+	if len(sentMsg) != 5 {
+		t.Fatalf("Wrong len of msg %d", len(sentMsg))
+	}
+	if sentMsg != "blah\n" {
+		t.Fatalf("%s != %s ", string(sent), string(sentMsg))
+	}
+	l.Stop()
+}
+
+//dequeueUpToMaxBatchSize
+func TestLogzioSender_DequeueUpToMaxBatchSize(t *testing.T) {
+	var sent = make([]byte, 1024)
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		r.Body.Read(sent)
+	}))
+	ts.Start()
+	defer ts.Close()
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetDrainDuration(time.Hour),
+		SetUrl(ts.URL),
+		SetInMemoryQueue(true),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 100; i++ {
+		l.Send(make([]byte, 33000))
+	}
+	bufSize := l.dequeueUpToMaxBatchSize()
+	item, err := l.queue.Dequeue()
+	if item == nil {
+		t.Fatalf("Queue not suposed to bee empty")
+	}
+	if uint64(bufSize) > 3*1024*1024 {
+		t.Fatalf("%d > %d", bufSize, 3*1024*1024)
+	}
+
 	l.Stop()
 }
 
@@ -446,4 +606,23 @@ func BenchmarkLogzioSender(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		l.Send(msg)
 	}
+}
+
+// E2E test
+func TestLogzioSender_E2E(t *testing.T) {
+	l, err := New("",
+		SetInMemoryQueue(true),
+	)
+	if err != nil {
+		panic(err)
+	}
+	msg := fmt.Sprintf("{ \"%s\": \"%s\"}", "message", "Should go in")
+	for i := 0; i < 50; i++ {
+		err := l.Send([]byte(msg))
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	l.Stop() //logs are buffered on disk. Stop will drain the buffer
 }

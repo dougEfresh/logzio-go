@@ -23,15 +23,6 @@ func Test_CalculateSize(t *testing.T) {
 	}
 }
 
-func Test_FullQueue(t *testing.T) {
-	queue := NewConcurrentQueue(500)
-	message := make([]byte, 1000)
-	_, err := queue.Enqueue(message)
-	if err == nil {
-		t.Fatalf("Expected: %s\nActual: none", err)
-	}
-}
-
 func Test_EmptyQueue(t *testing.T) {
 	queue := NewConcurrentQueue(defaultQueueCapacity)
 	_, err := queue.Dequeue()
@@ -44,7 +35,6 @@ func Test_EmptyQueue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected: none\nActual: %s", err)
 	}
-
 }
 
 func Test_EnqueueDequeue(t *testing.T) {

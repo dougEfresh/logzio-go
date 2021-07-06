@@ -64,10 +64,7 @@ func (queue *QueueBackend) createNode(data []byte) *Node {
 }
 
 func (queue *QueueBackend) put(data []byte) error {
-	//if queue.size + uint64(len(data)) >= queue.maxSize {
-	//	err := errors.New("Queue full")
-	//	return err
-	//}
+
 	if queue.size == 0 {
 		//new root node
 		node := queue.createNode(data)
@@ -91,10 +88,6 @@ func (queue *QueueBackend) put(data []byte) error {
 }
 
 func (queue *QueueBackend) pop() ([]byte, error) {
-	//if queue.size == 0 {
-	//	err := errors.New("Queue empty")
-	//	return nil, err
-	//}
 
 	currentEnd := queue.tail
 	newEnd := currentEnd.prev
@@ -116,18 +109,9 @@ func (queue *QueueBackend) isEmpty() bool {
 	return queue.size == 0
 }
 
-func (queue *QueueBackend) isFull() bool {
-	return queue.size >= queue.maxSize
-}
-
 func (c *ConcurrentQueue) Enqueue(data []byte) (*Item, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-
-	//for c.backend.isFull() {
-	//	//wait for empty
-	//	return nil, nil
-	//}
 
 	//insert
 	err := c.backend.put(data)
