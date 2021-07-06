@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
+	"github.com/beeker1121/goque"
+	"github.com/logzio/logzio-go/inMemoryQueue"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -25,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/beeker1121/goque"
 	"github.com/shirou/gopsutil/disk"
 	"go.uber.org/atomic"
 )
@@ -38,6 +39,7 @@ const (
 	defaultDrainDuration  = 5 * time.Second
 	defaultDiskThreshold  = 95.0 // represent % of the disk
 	defaultCheckDiskSpace = true
+	defaultQueueMaxLength = 1000
 
 	httpError = -1
 )
@@ -47,7 +49,9 @@ type Sender LogzioSender
 
 // LogzioSender instance of the
 type LogzioSender struct {
-	queue             *goque.Queue
+	queue genericQueue
+	//queue             *inMemoryQueue.ConcurrentQueue
+	//queue             *goque.Queue
 	drainDuration     time.Duration
 	buf               *bytes.Buffer
 	draining          atomic.Bool
@@ -62,6 +66,9 @@ type LogzioSender struct {
 	dir               string
 	httpClient        *http.Client
 	httpTransport     *http.Transport
+	// In memory Queue
+	inMemoryQueue    bool
+	inMemoryCapacity uint64
 }
 
 // SenderOptionFunc options for logz
@@ -79,11 +86,14 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 		checkDiskSpace:    defaultCheckDiskSpace,
 		fullDisk:          false,
 		checkDiskDuration: 5 * time.Second,
+		// In memory queue
+		inMemoryQueue:    false,
+		inMemoryCapacity: defaultQueueMaxLength,
 	}
 
 	tlsConfig := &tls.Config{}
 	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
+		Proxy:           http.ProxyFromEnvironment,
 		TLSClientConfig: tlsConfig,
 	}
 	// in case server side is sleeping - wait 10s instead of waiting for him to wake up
@@ -100,15 +110,46 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 		}
 	}
 
-	q, err := goque.OpenQueue(l.dir)
-	if err != nil {
-		return nil, err
+	if l.inMemoryQueue {
+		// Init in memory queue
+		q := inMemoryQueue.NewConcurrentQueue(l.inMemoryCapacity)
+		l.queue = q
+		l.checkDiskSpace = false
+	} else {
+		// Init disk queue
+		q, err := goque.OpenQueue(l.dir)
+		if err != nil {
+			return nil, err
+		}
+		l.queue = q
+		go l.isEnoughDiskSpace()
 	}
-
-	l.queue = q
 	go l.start()
-	go l.isEnoughDiskSpace()
 	return l, nil
+}
+
+// SetCheckCapacity  to check if it crosses the maximum allowed memory usage
+//func SetCheckCapacity(check bool) SenderOptionFunc {
+//	return func(l *LogzioSender) error {
+//		l.checkCapacity = check
+//		return nil
+//	}
+//}
+
+// SetInMemoryQueue to change the default disk queue
+func SetinMemoryCapacity(size uint64) SenderOptionFunc {
+	return func(l *LogzioSender) error {
+		l.inMemoryCapacity = size
+		return nil
+	}
+}
+
+// SetInMemoryQueue to change the default disk queue
+func SetInMemoryQueue(b bool) SenderOptionFunc {
+	return func(l *LogzioSender) error {
+		l.inMemoryQueue = b
+		return nil
+	}
 }
 
 // SetTempDirectory Use this temporary dir
@@ -186,10 +227,29 @@ func (l *LogzioSender) isEnoughDiskSpace() {
 	}
 }
 
+func (l *LogzioSender) isEnoughMemory(dataSize uint64) bool {
+	usage := l.queue.Length()
+	l.debugLog("Current memory usage: %d\n", usage)
+	if usage+dataSize >= l.inMemoryCapacity {
+		l.debugLog("Logz.io: Dropping logs, the max capacity is %d and %d is requested, Request size: %d\n", l.inMemoryCapacity, usage+dataSize, dataSize)
+		//l.fullCapacity = true
+		return false
+	} else {
+		//l.fullCapacity = false
+		return true
+	}
+}
+
 // Send the payload to logz.io
 func (l *LogzioSender) Send(payload []byte) error {
-	if !l.fullDisk {
+	//l.isEnoughMemory()
+	if !l.fullDisk && !l.inMemoryQueue {
 		_, err := l.queue.Enqueue(payload)
+		//err := l.queue.Enqueue(payload)
+		return err
+	} else if l.inMemoryQueue && l.isEnoughMemory(uint64(len(payload))) {
+		_, err := l.queue.Enqueue(payload)
+		//err := l.queue.Enqueue(payload)
 		return err
 	}
 	return nil
@@ -220,7 +280,7 @@ func (l *LogzioSender) tryToSendLogs() int {
 		l.debugLog("Error reading response body: %v", err)
 	}
 	if statusCode != http.StatusOK {
-		l.debugLog("got error response from server: ", string(body))
+		l.debugLog("got error response from server: %v", string(body))
 	}
 	return statusCode
 }
@@ -298,8 +358,7 @@ func (l *LogzioSender) dequeueUpToMaxBatchSize() int {
 				break
 			}
 			bufSize += len(item.Value)
-			l.debugLog("logziosender.go: Adding item %d with size %d (total buffSize: %d)\n",
-				item.ID, len(item.Value), bufSize)
+			l.debugLog("logziosender.go: Adding item with size %d (total buffSize: %d)\n", len(item.Value), bufSize)
 			_, err := l.buf.Write(append(item.Value, '\n'))
 			if err != nil {
 				l.errorLog("error writing to buffer %s", err)
