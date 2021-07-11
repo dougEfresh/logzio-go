@@ -670,7 +670,7 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 
 //E2E test
 func TestLogzioSender_E2E(t *testing.T) {
-	l, err := New("McvJQAtOrFUZQRFMrvSqnKSEJhjjFZHz",
+	l, err := New("",
 		SetInMemoryQueue(true),
 		SetDrainDuration(time.Second*5),
 		SetDebug(os.Stderr),
