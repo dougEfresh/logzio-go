@@ -15,7 +15,11 @@
 package logzio
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/tidwall/sjson"
+	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -23,8 +27,9 @@ import (
 	"time"
 )
 
+// Utils
 const (
-	defaultQueueSize = 3 * 1024 * 1024 // 3mb
+	defaultQueueSize = 40 * 1024 * 1024 // 3mb
 )
 
 // In memory queue tests
@@ -116,6 +121,41 @@ func TestLogzioSender_InMemorySend(t *testing.T) {
 	}
 	l.Drain()
 	time.Sleep(200 * time.Millisecond)
+	if sentToken != "fake-token" {
+		t.Fatalf("token not sent %s", sentToken)
+	}
+	item, err := l.queue.Dequeue()
+	if item != nil {
+		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
+	}
+	l.Stop()
+}
+
+func TestLogzioSender_InMemoryDrain(t *testing.T) {
+	var sent = make([]byte, 1024)
+	var sentToken string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sentToken = r.URL.Query().Get("token")
+		w.WriteHeader(http.StatusOK)
+		r.Body.Read(sent)
+	}))
+	defer ts.Close()
+	l, err := New("fake-token",
+		SetUrl(ts.URL),
+		SetinMemoryCapacity(defaultQueueSize),
+		SetInMemoryQueue(true),
+		SetDebug(os.Stderr),
+		SetDrainDuration(time.Hour),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 4000000 bytes = ~ 4mb, tests two batches in one drain
+	for i := 0; i < 1000; i++ {
+		l.Send(make([]byte, 4000))
+	}
+	l.Drain()
+	time.Sleep(time.Second * 10)
 	if sentToken != "fake-token" {
 		t.Fatalf("token not sent %s", sentToken)
 	}
@@ -563,7 +603,7 @@ func TestLogzioSender_ThresholdLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(l.dir)
-	<-time.After(l.checkDiskDuration + time.Second*2)
+	<-time.After(l.checkDiskDuration + time.Second*3)
 	fmt.Printf("flag is %v", l.fullDisk)
 	l.Send([]byte("blah"))
 	item, err := l.queue.Dequeue()
@@ -599,7 +639,8 @@ func BenchmarkLogzioSender(b *testing.B) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	l, _ := New("fake-token", SetUrl(ts.URL), SetDrainDuration(time.Hour))
+	l, _ := New("fake-token", SetUrl(ts.URL),
+		SetDrainDuration(time.Hour))
 	defer ts.Close()
 	defer l.Stop()
 	msg := []byte("test")
@@ -608,21 +649,92 @@ func BenchmarkLogzioSender(b *testing.B) {
 	}
 }
 
-// E2E test
-func TestLogzioSender_E2E(t *testing.T) {
-	l, err := New("",
+func BenchmarkLogzioSenderInmemory(b *testing.B) {
+	b.ReportAllocs()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	l, _ := New("fake-token", SetUrl(ts.URL),
+		SetDrainDuration(time.Hour),
 		SetInMemoryQueue(true),
+		SetlogCountLimit(6000000),
+	)
+
+	defer ts.Close()
+	defer l.Stop()
+	msg := []byte("test")
+	for i := 0; i < b.N; i++ {
+		l.Send(msg)
+	}
+}
+
+//E2E test
+func TestLogzioSender_E2E(t *testing.T) {
+	l, err := New("McvJQAtOrFUZQRFMrvSqnKSEJhjjFZHz",
+		SetInMemoryQueue(true),
+		SetDrainDuration(time.Second*5),
+		SetDebug(os.Stderr),
 	)
 	if err != nil {
 		panic(err)
 	}
-	msg := fmt.Sprintf("{ \"%s\": \"%s\"}", "message", "Should go in")
-	for i := 0; i < 50; i++ {
+	randomString := fmt.Sprint(rand.Int())
+	msg := fmt.Sprintf("{ \"%s\": \"%s\"}", "message", randomString)
+	l.debugLog("Sending 500 logs...\n")
+	for i := 0; i < 500; i++ {
 		err := l.Send([]byte(msg))
 		if err != nil {
 			panic(err)
 		}
 	}
+	<-time.After(l.drainDuration)
 
+	apiQuery := `{
+		"query": {
+			"bool": {
+				"must": [{
+	"query_string": {
+	"query": ""
+	}
+	},
+	{
+	"range": {
+	"@timestamp": {
+	"gte": "now-5m",
+	"lte": "now"
+	}
+	}
+	}
+	]
+	}
+	},
+	"size": 1000,
+	"from": 0
+	}`
+
+	url := "https://api.logz.io/v1/search"
+	queryString := fmt.Sprintf("message:%s", randomString)
+	query, _ := sjson.Set(apiQuery, "query.bool.must.0.query_string.query", queryString)
+	var jsonStr = []byte(query)
+
+	l.debugLog("Waiting 40 seconds for ingestion\n")
+	time.Sleep(time.Second * 40)
+
+	fmt.Println("URL:>", url)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	req.Header.Set("X-API-TOKEN", "6c94fd02-8e34-4f0c-bc00-9a42e35171fc")
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("response Status:", resp.Status)
+	fmt.Println("response Headers:", resp.Header)
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println("response Body:", string(body))
 	l.Stop() //logs are buffered on disk. Stop will drain the buffer
 }

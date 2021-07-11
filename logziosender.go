@@ -40,6 +40,7 @@ const (
 	defaultDiskThreshold  = 95.0 // represent % of the disk
 	defaultCheckDiskSpace = true
 	defaultQueueMaxLength = 9 * 1024 * 1024 // 9 mb
+	defaultMaxLogCount    = 500000
 
 	httpError = -1
 )
@@ -49,9 +50,7 @@ type Sender LogzioSender
 
 // LogzioSender instance of the
 type LogzioSender struct {
-	queue genericQueue
-	//queue             *inMemoryQueue.ConcurrentQueue
-	//queue             *goque.Queue
+	queue             genericQueue
 	drainDuration     time.Duration
 	buf               *bytes.Buffer
 	draining          atomic.Bool
@@ -69,6 +68,7 @@ type LogzioSender struct {
 	// In memory Queue
 	inMemoryQueue    bool
 	inMemoryCapacity uint64
+	logCountLimit    int
 }
 
 // SenderOptionFunc options for logz
@@ -89,8 +89,8 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 		// In memory queue
 		inMemoryQueue:    false,
 		inMemoryCapacity: defaultQueueMaxLength,
+		logCountLimit:    defaultMaxLogCount,
 	}
-
 	tlsConfig := &tls.Config{}
 	transport := &http.Transport{
 		Proxy:           http.ProxyFromEnvironment,
@@ -112,7 +112,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 
 	if l.inMemoryQueue {
 		// Init in memory queue
-		q := inMemoryQueue.NewConcurrentQueue(l.inMemoryCapacity)
+		q := inMemoryQueue.NewConcurrentQueue(l.logCountLimit)
 		l.queue = q
 		l.checkDiskSpace = false
 	} else {
@@ -128,13 +128,13 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 	return l, nil
 }
 
-// SetCheckCapacity  to check if it crosses the maximum allowed memory usage
-//func SetCheckCapacity(check bool) SenderOptionFunc {
-//	return func(l *LogzioSender) error {
-//		l.checkCapacity = check
-//		return nil
-//	}
-//}
+// SetlogCountLimit to change the default limit
+func SetlogCountLimit(limit int) SenderOptionFunc {
+	return func(l *LogzioSender) error {
+		l.logCountLimit = limit
+		return nil
+	}
+}
 
 // SetinMemoryCapacity to change the default capacity
 func SetinMemoryCapacity(size uint64) SenderOptionFunc {
@@ -230,10 +230,8 @@ func (l *LogzioSender) isEnoughMemory(dataSize uint64) bool {
 	usage := l.queue.Length()
 	if usage+dataSize >= l.inMemoryCapacity {
 		l.debugLog("Logz.io: Dropping logs, the max capacity is %d and %d is requested, Request size: %d\n", l.inMemoryCapacity, usage+dataSize, dataSize)
-		//l.fullCapacity = true
 		return false
 	} else {
-		//l.fullCapacity = false
 		return true
 	}
 }
@@ -243,11 +241,9 @@ func (l *LogzioSender) Send(payload []byte) error {
 	//l.isEnoughMemory()
 	if !l.fullDisk && !l.inMemoryQueue {
 		_, err := l.queue.Enqueue(payload)
-		//err := l.queue.Enqueue(payload)
 		return err
 	} else if l.inMemoryQueue && l.isEnoughMemory(uint64(len(payload))) {
 		_, err := l.queue.Enqueue(payload)
-		//err := l.queue.Enqueue(payload)
 		return err
 	}
 	return nil
@@ -261,7 +257,6 @@ func (l *LogzioSender) start() {
 func (l *LogzioSender) Stop() {
 	defer l.queue.Close()
 	l.Drain()
-
 }
 
 func (l *LogzioSender) tryToSendLogs() int {
@@ -277,9 +272,6 @@ func (l *LogzioSender) tryToSendLogs() int {
 	if err != nil {
 		l.debugLog("Error reading response body: %v", err)
 	}
-	//if statusCode != http.StatusOK {
-	//	l.debugLog("got error response from server: %v", string(body))
-	//}
 	return statusCode
 }
 
@@ -315,7 +307,6 @@ func (l *LogzioSender) shouldRetry(statusCode int) bool {
 func (l *LogzioSender) Drain() {
 	if l.draining.Load() {
 		l.debugLog("logziosender.go: Already draining\n")
-		return
 	}
 	l.mux.Lock()
 	l.debugLog("logziosender.go: draining queue\n")
@@ -324,27 +315,33 @@ func (l *LogzioSender) Drain() {
 	defer l.draining.Toggle()
 
 	l.buf.Reset()
-	bufSize := l.dequeueUpToMaxBatchSize()
-	if bufSize > 0 {
-		backOff := sendSleepingBackoff
-		toBackOff := false
-		for attempt := 0; attempt < sendRetries; attempt++ {
-			if toBackOff {
-				l.debugLog("logziosender.go: failed to send logs, trying again in %v\n", backOff)
-				time.Sleep(backOff)
-				backOff *= 2
-			}
-			statusCode := l.tryToSendLogs()
-			if l.shouldRetry(statusCode) {
-				toBackOff = true
-				if attempt == (sendRetries - 1) {
-					l.requeue()
+	var reDrain bool = true
+	for l.queue.Length() > 0 && reDrain {
+		bufSize := l.dequeueUpToMaxBatchSize()
+		if bufSize > 0 {
+			backOff := sendSleepingBackoff
+			toBackOff := false
+			for attempt := 0; attempt < sendRetries; attempt++ {
+				if toBackOff {
+					l.debugLog("logziosender.go: failed to send logs, trying again in %v\n", backOff)
+					time.Sleep(backOff)
+					backOff *= 2
 				}
-			} else {
-				break
+				statusCode := l.tryToSendLogs()
+				if l.shouldRetry(statusCode) {
+					toBackOff = true
+					if attempt == (sendRetries - 1) {
+						l.requeue()
+						reDrain = false
+					}
+				} else {
+					reDrain = true
+					break
+				}
 			}
 		}
 	}
+
 }
 
 func (l *LogzioSender) dequeueUpToMaxBatchSize() int {
