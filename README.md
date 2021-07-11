@@ -14,6 +14,7 @@ $ go get -u github.com/logzio/logzio-go
 
 ## Quick Start
 
+### Disk queue
 ```go
 package main
 
@@ -47,6 +48,40 @@ func main() {
 }
 ```
 
+### In memory queue
+```go
+package main
+
+import (
+  "fmt"
+  "github.com/logzio/logzio-go"
+  "os"
+  "time"
+)
+
+func main() {
+  l, err := logzio.New(
+  		"fake-token",
+  		SetDebug(os.Stderr),
+  		SetUrl("http://localhost:12345"),
+	    SetInMemoryQueue(true),
+	    SetinMemoryCapacity(24000000),
+	    SetlogCountLimit(6000000),
+  	) // token is required
+  if err != nil {
+    panic(err)
+  }
+  msg := fmt.Sprintf("{ \"%s\": \"%s\"}", "message", time.Now().UnixNano())
+
+  err = l.Send([]byte(msg))
+  if err != nil {
+     panic(err)
+  }
+
+  l.Stop() 
+}
+```
+
 ## Usage
 
 - Set url mode:
@@ -67,10 +102,22 @@ func main() {
 - Set disk queue threshold, once the threshold is crossed the sender will not enqueue the received logs:
     `logzio.New(token, SetDrainDiskThreshold(99))`
 
-## Disk queue
+- Set the sender to Use in memory queue:
+  `logzio.New(token, SetInMemoryQueue(true))`
 
+- Set the sender to Use in memory queue with log count limit and capacity:
+  `logzio.New(token,
+  SetInMemoryQueue(true),
+  SetinMemoryCapacity(500),
+  SetlogCountLimit(6000000),
+  )`
+
+## Disk queue
 Logzio go client uses [goleveldb](https://github.com/syndtr/goleveldb) and [goqueue](github.com/beeker1121/goque) as a persistent storage.
 Every 5 seconds logs are sent to logz.io (if any are available)
+
+## In memory queue
+You can see the logzio go client queue implementation in `inMemoryQueue.go` file
 
 ## Tests
 
